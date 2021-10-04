@@ -1,0 +1,5 @@
+name: 'AutoDev action'
+description: 'Tries to merge all commits with the dev label into the dev branch'
+runs:
+  using: 'node12'
+  main: 'index.js'
