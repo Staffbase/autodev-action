@@ -10,3 +10,11 @@ jobs:
       - uses: actions/checkout@v2
       - uses: staffbase/autodev@1.0.0
 ```
+
+Build:
+
+- `npm build`
+
+Test:
+
+- `npm test`
