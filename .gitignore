@@ -1,4 +1,4 @@
-.github/actions/**/*.js
+**/*.js
 logs
 *.log
 npm-debug.log*
