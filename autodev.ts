@@ -12,7 +12,9 @@ const run = async (): Promise<void> => {
     const token = core.getInput('token');
     const octokit = github.getOctokit(token)
 
-    const {data: pulls} = await octokit.rest.pulls.list({owner, repo})
+    const {data: allPulls} = await octokit.rest.pulls.list({owner, repo})
+    const pulls = allPulls.filter(pull => pull.labels.some(l => l.name === "dev"))
+
     core.info(`it's working, wowsers ${JSON.stringify(pulls, null, 2)}`)
 }
 
