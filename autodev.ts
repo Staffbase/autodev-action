@@ -28,6 +28,7 @@ const run = async (): Promise<void> => {
     await exec('git checkout dev')
     await exec('git pull')
     await exec('git merge -s octopus', [...branches.map(b => `origin/${b}`), "-m", message, '--no-ff'])
+    await exec('git push -f')
     
     info(message)
 }
