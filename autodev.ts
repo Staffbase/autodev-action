@@ -29,7 +29,7 @@ const run = async (): Promise<void> => {
     await exec('git config --global user.name "AutoDev Action"')
     await exec('git fetch')
     await exec('git checkout -b new-dev origin/master')
-    await exec('git merge -s octopus', [...branches.map(b => `origin/${b}`), '--no-ff', "--allow-unrelated-histories", "-m", `"${message}"`])
+    await exec('git merge -s octopus', [...branches.map(b => `origin/${b}`), '--no-ff', "--allow-unrelated-histories", "-m", message])
     await exec('git checkout dev')
     await exec('git reset --hard new-dev')
     await exec('git push -f')
