@@ -28,10 +28,18 @@ const run = async (): Promise<void> => {
     await exec('git config --global user.email "staffbot@staffbase.com"')
     await exec('git config --global user.name "AutoDev Action"')
     await exec('git fetch')
-    await exec('git checkout -b new-dev origin/master')
-    await exec('git merge -s octopus', [...branches.map(b => `origin/${b}`), '--no-ff', "--allow-unrelated-histories", "-m", message])
     await exec('git checkout dev')
-    await exec('git reset --hard new-dev')
+    await exec('git reset --hard origin/master')
+    for (const branch of branches) {
+        try {
+            await exec('git merge', [branch])
+        } catch (error) {
+            info(`encountered merge conflicts with branch "${branch}", error: ${error}`)
+        }
+    }
+    await exec('git reset origin/master')
+    await exec('git add -A')
+    await exec('git commit -m', [message])
     await exec('git push -f')
     
     info(message)
