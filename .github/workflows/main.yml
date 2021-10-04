@@ -1,6 +1,9 @@
 on:
+  push:
+    branches-ignore:
+      - dev
   pull_request:
-    types: [ labeled ]
+    types: [labeled, unlabeled, opened, closed]
 
 jobs:
   test:
