@@ -10,7 +10,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "@actions/exec": "^1.1.0"
+  },
   "devDependencies": {
     "@actions/core": "^1.6.0",
     "@actions/github": "^5.0.0",
