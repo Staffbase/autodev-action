@@ -23,14 +23,15 @@ const run = async (): Promise<void> => {
     }
 
     const branches = pulls.map(pull => pull.head.ref);
-    const message = `AutoDev Action Commit\nThe following branches have been merged:\n${branches.map(b => `- ${b}`).join('\n')}`
+    const message = `AutoDev Action\n\nThe following branches have been merged:\n${branches.map(b => `- ${b}`).join('\n')}`
 
     await exec('git config --global user.email "staffbot@staffbase.com"')
     await exec('git config --global user.name "AutoDev Action"')
     await exec('git fetch')
+    await exec('git checkout -b new-dev')
+    await exec('git merge -s octopus origin/master', [...branches.map(b => `origin/${b}`), '--no-ff', "-m", `"${message}"`])
     await exec('git checkout dev')
-    await exec('git pull')
-    await exec('git merge -s octopus', [...branches.map(b => `origin/${b}`), "-m", message, '--no-ff'])
+    await exec('git reset --hard new-dev')
     await exec('git push -f')
     
     info(message)
