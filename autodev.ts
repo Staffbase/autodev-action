@@ -33,7 +33,7 @@ const run = async (): Promise<void> => {
     await exec('git reset --hard origin/master')
     for (const branch of branches) {
         try {
-            await exec(`git merge --allow-unrelated-histories origin/${branch}`)
+            await exec(`git merge origin/${branch}`)
         } catch (error) {
             info(`encountered merge conflicts with branch "${branch}", error: ${error}`)
             await exec(`git merge --abort`)
