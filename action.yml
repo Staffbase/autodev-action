@@ -6,4 +6,8 @@ runs:
 inputs:
   token:
     required: true
-    description: Github token
+    description: GitHub token of the user that should merge the PRs
+  user:
+    required: true
+    description: E-mail address of the user that should merge the PRs
+    

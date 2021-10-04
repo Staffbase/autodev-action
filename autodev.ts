@@ -24,6 +24,9 @@ const run = async (): Promise<void> => {
 
     const branches = pulls.map(pull => pull.head.ref);
     const message = `AutoDev Action Commit\nThe following branches have been merged:\n${branches.map(b => `- ${b}`).join('\n')}`
+
+    await exec('git config --global user.email "staffbot@staffbase.com"')
+    await exec('git config --global user.name "AutoDev Action"')
     await exec('git fetch')
     await exec('git checkout dev')
     await exec('git pull')
