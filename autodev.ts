@@ -34,7 +34,7 @@ const run = async (): Promise<void> => {
         optimistic ?
         await merge(branches) :
         await mergeAll(branches)
-
+ 
     await exec('git push -f')
     
     info(message)
