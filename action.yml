@@ -4,6 +4,9 @@ runs:
   using: 'node12'
   main: 'index.js'
 inputs:
+  optimistic:
+    required: false
+    description: Ignores conflicts between branches and merges the remaining branches.
   token:
     required: true
     description: GitHub token of the user that should merge the PRs
