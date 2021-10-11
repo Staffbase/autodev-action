@@ -20,4 +20,4 @@ jobs:
         with:
           token: ${{ secrets.DEV_PUSH_TOKEN }}
           user: ${{ secrets.DEV_PUSH_USER }}
-          optimistic: false
+          optimistic: true
