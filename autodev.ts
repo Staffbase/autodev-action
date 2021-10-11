@@ -38,10 +38,11 @@ const run = async (): Promise<void> => {
 }
 
 const merge = async (branches: string[]): Promise<string> => {
-    const message = `AutoDev Merge\n\nThe following branches have been merged:\n${branches.map(b => `- ${b}`).join('\n')}`
+    const success = []
     for (const branch of branches) {
         try {
             await exec(`git merge origin/${branch}`)
+            success.push(branch)
         } catch (error) {
             info(`encountered merge conflicts with branch "${branch}", error: ${error}`)
             await exec(`git merge --abort`)
@@ -49,6 +50,8 @@ const merge = async (branches: string[]): Promise<string> => {
     }
     await exec('git reset origin/master')
     await exec('git add -A')
+
+    const message = `AutoDev Merge\n\nThe following branches have been merged:\n${success.map(b => `- ${b}`).join('\n')}`
     await exec('git commit -m', [message])
 
     return message
