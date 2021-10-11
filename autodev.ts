@@ -1,9 +1,9 @@
 import {getInput, setFailed, info} from '@actions/core'
-import {getOctokit} from '@actions/github'
 import {exec} from '@actions/exec';
+import { getRepoString, fetchPulls } from './utils';
 
 const run = async (): Promise<void> => {
-    const repoString = process.env['GITHUB_REPOSITORY']
+    const repoString = getRepoString()
     if (!repoString) {
         setFailed("couldn't retrieve the repo string. GITHUB_REPOSITORY not set?")
         return
@@ -12,10 +12,7 @@ const run = async (): Promise<void> => {
     
     const token = getInput('token');
     const optimistic = getInput('optimistic') === "true";
-    const octokit = getOctokit(token)
-
-    const {data: allPulls} = await octokit.rest.pulls.list({owner, repo})
-    const pulls = allPulls.
+    const pulls = (await fetchPulls(token, owner, repo)).
         filter(pull => pull.labels.some(l => l.name === "dev"))
 
     if (pulls.length == 0) {
