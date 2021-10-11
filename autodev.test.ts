@@ -29,14 +29,9 @@ jest.mock('./utils', () => ({
 describe('autodev', () => {
   it('it runs', async () => {
     jest.spyOn(exec, 'exec').mockResolvedValue(0)
-    jest.spyOn(core, 'getInput').mockImplementation(input => {
-      switch (input) {
-        case "optimistic":
-          return "true";
-      }
-
-      return ""
-    })
+    jest.spyOn(core, 'getInput').mockImplementation(input => (
+        {optimistic: "true", token: "token"}[input] || "")
+    )
 
     const info = jest.spyOn(core, 'info')
     await run()
