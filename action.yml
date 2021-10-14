@@ -1,5 +1,5 @@
 name: 'AutoDev action'
-description: 'Tries to merge all commits with the dev label into the dev branch'
+description: 'Tries to merge all commits from a PR with the dev label into the dev branch'
 runs:
   using: 'node12'
   main: 'index.js'
@@ -13,4 +13,3 @@ inputs:
   user:
     required: true
     description: E-mail address of the user that should merge the PRs
-    

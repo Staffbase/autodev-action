@@ -1,7 +1,11 @@
-AutoDev action
----
+# AutoDev Action
+
+[![Continuous Integration](https://github.com/Staffbase/autodev-action/actions/workflows/main.yml/badge.svg)](https://github.com/Staffbase/autodev-action/actions/workflows/main.yml)
+
+Tries to merge all commits from a PR with the dev label into the dev branch.
 
 ```
+name: Autodev
 on:
   push:
     branches-ignore:
@@ -11,23 +15,31 @@ on:
 
 jobs:
   autodev:
+    name: Build Dev Branch
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - uses: @staffbase/autodev@1.0.1
+
+      - uses: staffbase/autodev-action@latest
         with:
           optimistic: true
           token: ${{ secrets.DEV_PUSH_TOKEN }}
           user: ${{ secrets.DEV_PUSH_USER }}
 ```
 
-Build:
+## Development
 
-- `npm build`
+Build
 
-Test:
+```
+npm build
+```
 
-- `npm test`
+Test
+
+```
+npm test
+```
