@@ -1,7 +1,7 @@
 {
   "name": "autodev-action",
-  "version": "1.0.0",
-  "description": "",
+  "version": "v1.0.0",
+  "description": "Github Action that tries to merge all commits from a PR with the dev label into the dev branch.",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
@@ -9,7 +9,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
     "@actions/exec": "^1.1.0"
   },
