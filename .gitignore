@@ -1,4 +1,4 @@
-**/*.js
+**/*.test.js
 logs
 *.log
 npm-debug.log*

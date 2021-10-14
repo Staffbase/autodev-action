@@ -37,6 +37,7 @@ Build
 ```
 npm build
 ```
+_please run `npm build` before merging a PR to master (or add a step to the CI to automate this)_
 
 Test
 
