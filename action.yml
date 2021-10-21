@@ -7,6 +7,9 @@ inputs:
   optimistic:
     required: false
     description: Ignores conflicts between branches and merges the remaining branches.
+  disableComments:
+    required: false
+    description: Disables comments.
   token:
     required: true
     description: GitHub token of the user that should merge the PRs
