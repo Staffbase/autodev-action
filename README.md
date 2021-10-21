@@ -26,6 +26,7 @@ jobs:
       - uses: staffbase/autodev-action@latest
         with:
           optimistic: true
+          disableComments: false
           token: ${{ secrets.DEV_PUSH_TOKEN }}
           user: ${{ secrets.DEV_PUSH_USER }}
 ```

@@ -12,6 +12,8 @@ const run = async (): Promise<void> => {
     
     const token = getInput('token');
     const optimistic = getInput('optimistic') === "true";
+    const disableComments = getInput('disableComments') === "true";
+
     const allPulls = (await fetchPulls(token, owner, repo))
     const pulls = allPulls.
         filter(pull => pull.labels.some(l => l.name === "dev")).
@@ -31,13 +33,15 @@ const run = async (): Promise<void> => {
     await exec('git checkout dev')
     await exec('git reset --hard origin/master')
 
-    const comment = (successfulPulls: Pull[]) => createComments(
-        token,
-        owner,
-        repo,
-        pulls, 
-        successfulPulls
-    )
+    const comment = (successfulPulls: Pull[]) => disableComments ? 
+        Promise.resolve(): 
+        createComments(
+            token,
+            owner,
+            repo,
+            pulls, 
+            successfulPulls
+        );
 
     const message =
         optimistic ?

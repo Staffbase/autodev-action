@@ -12,6 +12,7 @@ const run = async () => {
     const [owner, repo] = repoString.split('/');
     const token = (0, core_1.getInput)('token');
     const optimistic = (0, core_1.getInput)('optimistic') === "true";
+    const disableComments = (0, core_1.getInput)('disableComments') === "true";
     const allPulls = (await (0, utils_1.fetchPulls)(token, owner, repo));
     const pulls = allPulls.
         filter(pull => pull.labels.some(l => l.name === "dev")).
@@ -28,7 +29,9 @@ const run = async () => {
     await (0, exec_1.exec)('git fetch');
     await (0, exec_1.exec)('git checkout dev');
     await (0, exec_1.exec)('git reset --hard origin/master');
-    const comment = (successfulPulls) => (0, utils_1.createComments)(token, owner, repo, pulls, successfulPulls);
+    const comment = (successfulPulls) => disableComments ?
+        Promise.resolve() :
+        (0, utils_1.createComments)(token, owner, repo, pulls, successfulPulls);
     const message = optimistic ?
         await merge(pulls, comment) :
         await mergeAll(pulls, comment);
