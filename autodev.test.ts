@@ -4,6 +4,7 @@ import * as core from '@actions/core';
 
 jest.mock('./utils', () => ({
   getRepoString: () => '@staffbase/auto-dev-action',
+  createComments: () => Promise.resolve(),
   fetchPulls: async () => [
     {
       labels: [{name: 'dev'}],
