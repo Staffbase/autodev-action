@@ -31,7 +31,7 @@ describe('autodev', () => {
   it('it runs', async () => {
     jest.spyOn(exec, 'exec').mockResolvedValue(0)
     jest.spyOn(core, 'getInput').mockImplementation(input => (
-        {optimistic: "true", token: "token"}[input] || "")
+        {optimistic: "true", token: "token", base: "master"}[input] || "")
     )
 
     const info = jest.spyOn(core, 'info')

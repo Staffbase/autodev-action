@@ -13,6 +13,7 @@ const run = async (): Promise<void> => {
     const token = getInput('token');
     const optimistic = getInput('optimistic') === "true";
     const disableComments = getInput('disableComments') === "true";
+    const base = getInput('base') || "master";
 
     const allPulls = (await fetchPulls(token, owner, repo))
     const pulls = allPulls.
@@ -31,7 +32,7 @@ const run = async (): Promise<void> => {
     await exec('git config --global user.name "AutoDev Action"')
     await exec('git fetch')
     await exec('git checkout dev')
-    await exec('git reset --hard origin/master')
+    await exec(`git reset --hard origin/${base}`)
 
     const comment = (successfulPulls: Pull[]) => disableComments ? 
         Promise.resolve(): 
@@ -45,7 +46,7 @@ const run = async (): Promise<void> => {
 
     const message =
         optimistic ?
-        await merge(pulls, comment) :
+        await merge(base, pulls, comment) :
         await mergeAll(pulls, comment)
  
     await exec('git push -f')
@@ -55,7 +56,7 @@ const run = async (): Promise<void> => {
 
 type Comment = (success: Pull[]) => Promise<void>;
 
-const merge = async (pulls: Pull[], comment: Comment): Promise<string> => {
+const merge = async (base: string, pulls: Pull[], comment: Comment): Promise<string> => {
     const success: Pull[] = []
     for (const pull of pulls) {
         try {
@@ -66,7 +67,7 @@ const merge = async (pulls: Pull[], comment: Comment): Promise<string> => {
             await exec(`git merge --abort`)
         }
     }
-    await exec('git reset origin/master')
+    await exec(`git reset origin/${base}`)
     await exec('git add -A')
 
     const message = `AutoDev Merge\n\nThe following branches have been merged:\n${success.map(p => `- ${p.branch}`).join('\n')}`
