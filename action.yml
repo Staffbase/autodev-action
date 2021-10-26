@@ -10,6 +10,9 @@ inputs:
   disableComments:
     required: false
     description: Disables comments.
+  base:
+    required: false
+    description: Base branch. This branch is used as base, in which other branches will be merged into.
   token:
     required: true
     description: GitHub token of the user that should merge the PRs
