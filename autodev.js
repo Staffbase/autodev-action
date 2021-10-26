@@ -11,6 +11,8 @@ const run = async () => {
     }
     const [owner, repo] = repoString.split('/');
     const token = (0, core_1.getInput)('token');
+    const user = (0, core_1.getInput)('user') || "Staffbot";
+    const email = (0, core_1.getInput)('email') || "staffbot@staffbase.com";
     const optimistic = (0, core_1.getInput)('optimistic') === "true";
     const disableComments = (0, core_1.getInput)('disableComments') === "true";
     const allPulls = (await (0, utils_1.fetchPulls)(token, owner, repo));
@@ -24,8 +26,8 @@ const run = async () => {
         (0, core_1.info)("nothing to merge.");
         return;
     }
-    await (0, exec_1.exec)('git config --global user.email "staffbot@staffbase.com"');
-    await (0, exec_1.exec)('git config --global user.name "AutoDev Action"');
+    await (0, exec_1.exec)(`git config --global user.email "${email}"`);
+    await (0, exec_1.exec)(`git config --global user.name "${user}"`);
     await (0, exec_1.exec)('git fetch');
     await (0, exec_1.exec)('git checkout dev');
     await (0, exec_1.exec)('git reset --hard origin/master');

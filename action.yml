@@ -14,5 +14,8 @@ inputs:
     required: true
     description: GitHub token of the user that should merge the PRs
   user:
-    required: true
+    required: false
+    description: Name of user that should merge the PRs
+  email:
+    required: false
     description: E-mail address of the user that should merge the PRs

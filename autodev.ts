@@ -11,6 +11,8 @@ const run = async (): Promise<void> => {
     const [owner, repo] = repoString.split('/')
     
     const token = getInput('token');
+    const user = getInput('user') || "Staffbot";
+    const email = getInput('email')  || "staffbot@staffbase.com";
     const optimistic = getInput('optimistic') === "true";
     const disableComments = getInput('disableComments') === "true";
 
@@ -27,8 +29,8 @@ const run = async (): Promise<void> => {
         return
     }
 
-    await exec('git config --global user.email "staffbot@staffbase.com"')
-    await exec('git config --global user.name "AutoDev Action"')
+    await exec(`git config --global user.email "${email}"`)
+    await exec(`git config --global user.name "${user}"`)
     await exec('git fetch')
     await exec('git checkout dev')
     await exec('git reset --hard origin/master')

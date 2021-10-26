@@ -21,6 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - uses: staffbase/autodev-action@latest
@@ -28,7 +29,6 @@ jobs:
           optimistic: true
           disableComments: false
           token: ${{ secrets.DEV_PUSH_TOKEN }}
-          user: ${{ secrets.DEV_PUSH_USER }}
 ```
 
 ## Development
