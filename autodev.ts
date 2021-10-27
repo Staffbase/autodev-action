@@ -50,9 +50,10 @@ const run = async (): Promise<void> => {
         await mergeAll(pulls, comment)
  
 
-    const h = await hasDiff("HEAD", "origin/dev")
-    console.log({hasDiff: h})
-    await exec('git push -f')
+    // only push to origin/dev if there are changes
+    if (await hasDiff("HEAD", "origin/dev")) {
+        await exec('git push -f')
+    }
     
     info(message)
 }
