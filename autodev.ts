@@ -49,9 +49,24 @@ const run = async (): Promise<void> => {
         await merge(base, pulls, comment) :
         await mergeAll(pulls, comment)
  
-    await exec('git push -f')
+
+    // only push to origin/dev if there are changes
+    if (await hasDiff("HEAD", "origin/dev")) {
+        await exec('git push -f')
+    }
     
     info(message)
+}
+
+const hasDiff = async (a: string, b: string): Promise<boolean> => {
+    let ret = false;
+    await exec(`git diff ${a}..${b}`, undefined, {
+        listeners: {
+            stdout: _ => { ret = true }
+        }
+    })
+
+    return ret;
 }
 
 type Comment = (success: Pull[]) => Promise<void>;

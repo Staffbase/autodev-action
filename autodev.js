@@ -36,8 +36,20 @@ const run = async () => {
     const message = optimistic ?
         await merge(base, pulls, comment) :
         await mergeAll(pulls, comment);
-    await (0, exec_1.exec)('git push -f');
+    // only push to origin/dev if there are changes
+    if (await hasDiff("HEAD", "origin/dev")) {
+        await (0, exec_1.exec)('git push -f');
+    }
     (0, core_1.info)(message);
+};
+const hasDiff = async (a, b) => {
+    let ret = false;
+    await (0, exec_1.exec)(`git diff ${a}..${b}`, undefined, {
+        listeners: {
+            stdout: _ => { ret = true; }
+        }
+    });
+    return ret;
 };
 const merge = async (base, pulls, comment) => {
     const success = [];
