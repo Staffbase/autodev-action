@@ -1,0 +1,42 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'master'
+      - 'releases/*'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache Node Dependencies
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/app/package-lock.json') }}
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Action
+        run: npm run all
+
+  test:
+    name: Test
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Execute Action
+        uses: ./
+        with:
+          token: ${{ secrets.DEV_PUSH_TOKEN }}
+          user: ${{ secrets.DEV_PUSH_USER }}
+          optimistic: true
