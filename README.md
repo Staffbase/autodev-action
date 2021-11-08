@@ -23,7 +23,7 @@ jobs:
         with:
           # The token of the user that should perform the merges. 
           # This must be a personal access token with the necessary permissions
-          token: ${{ secrets.DEV_PUSH_TOKEN }}
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           fetch-depth: 0
 
       - name: Autodev
@@ -41,9 +41,9 @@ jobs:
           # Default: false
           disableComments: false
           # The token used to fetch the pull requests from the API
-          token: ${{ secrets.DEV_PUSH_TOKEN }}
+          token: ${{ secrets. PERSONAL_ACCESS_TOKEN }}
           # E-mail address of the user that should merge the PRs
-          user: ${{ secrets.DEV_PUSH_USER }}
+          user: "autodev@example.com"
 ```
 
 # Release a new version of this action
