@@ -12,7 +12,7 @@ const autoDev = async (): Promise<void> => {
 
   const token = getInput('token')
   const optimistic = getInput('optimistic') === 'true'
-  const disableComments = getInput('disableComments') === 'true'
+  const comments = getInput('comments') === 'false'
   const base = getInput('base') || 'master'
 
   const allPulls = await fetchPulls(token, owner, repo)
@@ -35,9 +35,9 @@ const autoDev = async (): Promise<void> => {
   await exec(`git reset --hard origin/${base}`)
 
   const comment = async (successfulPulls: Pull[]): Promise<void> =>
-    disableComments
-      ? Promise.resolve()
-      : createComments(token, owner, repo, pulls, successfulPulls)
+    comments
+      ? createComments(token, owner, repo, pulls, successfulPulls)
+      : Promise.resolve()
 
   const message = optimistic
     ? await merge(base, pulls, comment)

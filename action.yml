@@ -6,16 +6,19 @@ runs:
 inputs:
   optimistic:
     required: false
-    description: Ignores conflicts between branches and merges the remaining branches.
-  disableComments:
+    default: "true"
+    description: "Ignores conflicts between branches and merges the remaining branches."
+  comments:
     required: false
-    description: Disables comments.
+    default: "false"
+    description: "If true, the action will be comment a summary to the Pull Request with all the merged branches."
   base:
     required: false
-    description: Base branch. This branch is used as base, in which other branches will be merged into.
+    default: "master"
+    description: "Base branch. This branch is used as base, in which other branches will be merged into."
   token:
     required: true
-    description: GitHub token of the user that should merge the PRs
+    description: "GitHub token of the user that should merge the Pull Requests."
   user:
     required: true
-    description: E-mail address of the user that should merge the PRs
+    description: "E-mail address of the user that should merge the Pull Requests."
