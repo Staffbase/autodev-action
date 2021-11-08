@@ -27,8 +27,10 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     }
     const [owner, repo] = repoString.split('/');
     const token = (0, core_1.getInput)('token');
+    const user = (0, core_1.getInput)('user') || 'AutoDev Action';
+    const email = (0, core_1.getInput)('email') || 'staffbot@staffbase.com';
     const optimistic = (0, core_1.getInput)('optimistic') === 'true';
-    const disableComments = (0, core_1.getInput)('disableComments') === 'true';
+    const comments = (0, core_1.getInput)('comments') === 'false';
     const base = (0, core_1.getInput)('base') || 'master';
     const allPulls = yield (0, utils_1.fetchPulls)(token, owner, repo);
     const pulls = allPulls
@@ -41,15 +43,15 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
         (0, core_1.info)('nothing to merge.');
         return;
     }
-    yield (0, exec_1.exec)('git config --global user.email "staffbot@staffbase.com"');
-    yield (0, exec_1.exec)('git config --global user.name "AutoDev Action"');
+    yield (0, exec_1.exec)(`git config --global user.email "${email}"`);
+    yield (0, exec_1.exec)(`git config --global user.name "${user}"`);
     yield (0, exec_1.exec)('git fetch');
     yield (0, exec_1.exec)('git checkout dev');
     yield (0, exec_1.exec)(`git reset --hard origin/${base}`);
     const comment = (successfulPulls) => __awaiter(void 0, void 0, void 0, function* () {
-        return disableComments
-            ? Promise.resolve()
-            : (0, utils_1.createComments)(token, owner, repo, pulls, successfulPulls);
+        return comments
+            ? (0, utils_1.createComments)(token, owner, repo, pulls, successfulPulls)
+            : Promise.resolve();
     });
     const message = optimistic
         ? yield merge(base, pulls, comment)
