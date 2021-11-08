@@ -18,7 +18,7 @@ inputs:
     description: "Base branch. This branch is used as base, in which other branches will be merged into."
   token:
     required: true
-    description: "GitHub token of the user that should merge the Pull Requests."
+    description: GitHub token of the user that fetches the pull requests
   user:
     required: false
     default: "AutoDev Action"
