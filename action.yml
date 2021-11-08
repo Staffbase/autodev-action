@@ -11,11 +11,11 @@ inputs:
   comments:
     required: false
     default: "false"
-    description: "If true, the action will be comment a summary to the Pull Request with all the merged branches."
+    description: "If true, the action creates a comment on each PR to inform about the status of the dev branch"
   base:
     required: false
     default: "master"
-    description: "Base branch. This branch is used as base, in which other branches will be merged into."
+    description: "This is the base branch. The merge history originates from this branch."
   token:
     required: true
     description: GitHub token of the user that fetches the pull requests
@@ -26,4 +26,4 @@ inputs:
   email:
     required: false
     default: "staffbot@staffbase.com"
-    description: "Email of the user which does the git commit."
+    description: "E-Mail of the user which does the git commit."
