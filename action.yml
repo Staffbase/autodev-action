@@ -20,5 +20,10 @@ inputs:
     required: true
     description: "GitHub token of the user that should merge the Pull Requests."
   user:
-    required: true
-    description: "E-mail address of the user that should merge the Pull Requests."
+    required: false
+    default: "AutoDev Action"
+    description: "Name of the user which does the git commit."
+  email:
+    required: false
+    default: "staffbot@staffbase.com"
+    description: "Email of the user which does the git commit."
