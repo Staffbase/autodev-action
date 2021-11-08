@@ -11,6 +11,8 @@ const autoDev = async (): Promise<void> => {
   const [owner, repo] = repoString.split('/')
 
   const token = getInput('token')
+  const label = getInput('label') || 'dev'
+  const branch = getInput('branch') || 'dev'
   const user = getInput('user') || 'AutoDev Action'
   const email = getInput('email') || 'staffbot@staffbase.com'
   const optimistic = getInput('optimistic') === 'true'
@@ -19,14 +21,14 @@ const autoDev = async (): Promise<void> => {
 
   const allPulls = await fetchPulls(token, owner, repo)
   const pulls = allPulls
-    .filter(pull => pull.labels.some(l => l.name === 'dev'))
+    .filter(pull => pull.labels.some(l => l.name === label))
     .map(pull => ({
       number: pull.number,
       branch: pull.head.ref
     }))
 
   if (pulls.length === 0) {
-    info('nothing to merge.')
+    info('🎉 No Pull Requests found. Nothing to merge.')
     return
   }
 
@@ -45,8 +47,8 @@ const autoDev = async (): Promise<void> => {
     ? await merge(base, pulls, comment)
     : await mergeAll(pulls, comment)
 
-  // only push to origin/dev if there are changes
-  if (await hasDiff('HEAD', 'origin/dev')) {
+  // only push to defined branch if there are changes
+  if (await hasDiff('HEAD', `origin/${branch}`)) {
     await exec('git push -f')
   }
 
