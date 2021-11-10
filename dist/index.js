@@ -27,6 +27,8 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     }
     const [owner, repo] = repoString.split('/');
     const token = (0, core_1.getInput)('token');
+    const label = (0, core_1.getInput)('label') || 'dev';
+    const branch = (0, core_1.getInput)('branch') || 'dev';
     const user = (0, core_1.getInput)('user') || 'AutoDev Action';
     const email = (0, core_1.getInput)('email') || 'staffbot@staffbase.com';
     const optimistic = (0, core_1.getInput)('optimistic') === 'true';
@@ -34,13 +36,13 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     const base = (0, core_1.getInput)('base') || 'master';
     const allPulls = yield (0, utils_1.fetchPulls)(token, owner, repo);
     const pulls = allPulls
-        .filter(pull => pull.labels.some(l => l.name === 'dev'))
+        .filter(pull => pull.labels.some(l => l.name === label))
         .map(pull => ({
         number: pull.number,
         branch: pull.head.ref
     }));
     if (pulls.length === 0) {
-        (0, core_1.info)('nothing to merge.');
+        (0, core_1.info)('🎉 No Pull Requests found. Nothing to merge.');
         return;
     }
     yield (0, exec_1.exec)(`git config --global user.email "${email}"`);
@@ -56,8 +58,8 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     const message = optimistic
         ? yield merge(base, pulls, comment)
         : yield mergeAll(pulls, comment);
-    // only push to origin/dev if there are changes
-    if (yield hasDiff('HEAD', 'origin/dev')) {
+    // only push to defined branch if there are changes
+    if (yield hasDiff('HEAD', `origin/${branch}`)) {
         yield (0, exec_1.exec)('git push -f');
     }
     (0, core_1.info)(message);
