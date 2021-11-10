@@ -45,12 +45,11 @@ jobs:
           # Default: false
           optimistic: true
           # The GitHub action creates a new comment inside every pull request.
-          # If you don't want any comments, you can disable the comments by setting this to true
           # Default: false
-          disableComments: false
+          comments: false
           # Name of the user which does the git commit.
-          # Default: staffbot@staffbase.com 
-          user: "autodev@example.com"
+          # Default: AutoDev Action
+          user: "AutoDev Action"
           # E-Mail of the user which does the git commit."
           # Default: staffbot@staffbase.com 
           email: "staffbot@staffbase.com"
