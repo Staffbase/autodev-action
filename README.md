@@ -27,13 +27,19 @@ jobs:
           fetch-depth: 0
 
       - name: Autodev
-        uses: staffbase/autodev-action@v1.0.0
+        uses: staffbase/autodev-action@v1
         with:
           # The token used to fetch the pull requests from the GitHub API
           token: ${{ secrets. PERSONAL_ACCESS_TOKEN }}
           # This is the base branch. The merge history originates from this branch.
           # Default: master
           base: main
+          # The label where the action will be triggered.
+          # Default: dev
+          label: dev
+          # The branch the action will merge the Pull Requests to.
+          # Default: dev
+          branch: dev
           # Whether the action should perform an "optimistic" merge of the given Pull requests.
           # If this is set to false, the dev branch is only built if there are zero merge conflicts between branches.
           # Default: false
