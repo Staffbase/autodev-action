@@ -1,6 +1,6 @@
 # AutoDev Action
 
-[![Continuous Integration](https://github.com/Staffbase/autodev-action/actions/workflows/main.yml/badge.svg)](https://github.com/Staffbase/autodev-action/actions/workflows/main.yml)
+[![Continuous Integration](https://github.com/Staffbase/autodev-action/actions/workflows/integration.yml/badge.svg)](https://github.com/Staffbase/autodev-action/actions/workflows/integration.yml) 
 
 This action merges commits from different Pull requests that have been tagged with the label `dev` into the `dev` branch on your GitHub repository.
 
