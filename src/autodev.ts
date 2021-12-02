@@ -28,7 +28,14 @@ const autoDev = async (): Promise<void> => {
     }))
 
   if (pulls.length === 0) {
-    info('🎉 No Pull Requests found. Nothing to merge.')
+    await exec('git fetch')
+    await exec(`git reset --hard origin/${base}`)
+    if (await hasDiff('HEAD', `origin/${branch}`)) {
+      await exec('git push -f')
+      info(`🎉 No Pull Requests found. Synced "dev" and "${branch}".`)
+    } else {
+      info('🎉 No Pull Requests found. Nothing to merge.')
+    }
     return
   }
 

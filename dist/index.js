@@ -42,7 +42,15 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
         branch: pull.head.ref
     }));
     if (pulls.length === 0) {
-        (0, core_1.info)('🎉 No Pull Requests found. Nothing to merge.');
+        yield (0, exec_1.exec)('git fetch');
+        yield (0, exec_1.exec)(`git reset --hard origin/${base}`);
+        if (yield hasDiff('HEAD', `origin/${branch}`)) {
+            yield (0, exec_1.exec)('git push -f');
+            (0, core_1.info)(`🎉 No Pull Requests found. Synced "dev" and "${branch}".`);
+        }
+        else {
+            (0, core_1.info)('🎉 No Pull Requests found. Nothing to merge.');
+        }
         return;
     }
     yield (0, exec_1.exec)(`git config --global user.email "${email}"`);
