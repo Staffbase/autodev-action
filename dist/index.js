@@ -34,6 +34,11 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     const optimistic = (0, core_1.getInput)('optimistic') === 'true';
     const comments = (0, core_1.getInput)('comments') === 'false';
     const base = (0, core_1.getInput)('base') || 'master';
+    const comment = (successfulPulls) => __awaiter(void 0, void 0, void 0, function* () {
+        return comments
+            ? (0, utils_1.createComments)(token, owner, repo, pulls, successfulPulls)
+            : Promise.resolve();
+    });
     const allPulls = yield (0, utils_1.fetchPulls)(token, owner, repo);
     const pulls = allPulls
         .filter(pull => pull.labels.some(l => l.name === label))
@@ -41,9 +46,12 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
         number: pull.number,
         branch: pull.head.ref
     }));
+    yield (0, exec_1.exec)('git fetch');
+    yield (0, exec_1.exec)(`git config --global user.email "${email}"`);
+    yield (0, exec_1.exec)(`git config --global user.name "${user}"`);
+    yield (0, exec_1.exec)('git checkout dev');
+    yield (0, exec_1.exec)(`git reset --hard origin/${base}`);
     if (pulls.length === 0) {
-        yield (0, exec_1.exec)('git fetch');
-        yield (0, exec_1.exec)(`git reset --hard origin/${base}`);
         if (yield hasDiff('HEAD', `origin/${branch}`)) {
             yield (0, exec_1.exec)('git push -f');
             (0, core_1.info)(`🎉 No Pull Requests found. Pushed changes, because "${branch}" and "${base}" diverged.`);
@@ -53,16 +61,6 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
         }
         return;
     }
-    yield (0, exec_1.exec)(`git config --global user.email "${email}"`);
-    yield (0, exec_1.exec)(`git config --global user.name "${user}"`);
-    yield (0, exec_1.exec)('git fetch');
-    yield (0, exec_1.exec)('git checkout dev');
-    yield (0, exec_1.exec)(`git reset --hard origin/${base}`);
-    const comment = (successfulPulls) => __awaiter(void 0, void 0, void 0, function* () {
-        return comments
-            ? (0, utils_1.createComments)(token, owner, repo, pulls, successfulPulls)
-            : Promise.resolve();
-    });
     const message = optimistic
         ? yield merge(base, pulls, comment)
         : yield mergeAll(pulls, comment);
