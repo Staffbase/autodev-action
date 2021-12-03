@@ -46,7 +46,7 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
         yield (0, exec_1.exec)(`git reset --hard origin/${base}`);
         if (yield hasDiff('HEAD', `origin/${branch}`)) {
             yield (0, exec_1.exec)('git push -f');
-            (0, core_1.info)(`🎉 No Pull Requests found. Synced "dev" and "${branch}".`);
+            (0, core_1.info)(`🎉 No Pull Requests found. Pushed changes, because "${branch}" and "${base}" diverged.`);
         }
         else {
             (0, core_1.info)('🎉 No Pull Requests found. Nothing to merge.');

@@ -32,7 +32,9 @@ const autoDev = async (): Promise<void> => {
     await exec(`git reset --hard origin/${base}`)
     if (await hasDiff('HEAD', `origin/${branch}`)) {
       await exec('git push -f')
-      info(`🎉 No Pull Requests found. Synced "dev" and "${branch}".`)
+      info(
+        `🎉 No Pull Requests found. Pushed changes, because "${branch}" and "${base}" diverged.`
+      )
     } else {
       info('🎉 No Pull Requests found. Nothing to merge.')
     }
