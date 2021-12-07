@@ -18,6 +18,10 @@ const autoDev = async (): Promise<void> => {
   const optimistic = getInput('optimistic') === 'true'
   const comments = getInput('comments') === 'false'
   const base = getInput('base') || 'master'
+  const comment = async (successfulPulls: Pull[]): Promise<void> =>
+    comments
+      ? createComments(token, owner, repo, pulls, successfulPulls)
+      : Promise.resolve()
 
   const allPulls = await fetchPulls(token, owner, repo)
   const pulls = allPulls
@@ -27,21 +31,23 @@ const autoDev = async (): Promise<void> => {
       branch: pull.head.ref
     }))
 
-  if (pulls.length === 0) {
-    info('🎉 No Pull Requests found. Nothing to merge.')
-    return
-  }
-
+  await exec('git fetch')
   await exec(`git config --global user.email "${email}"`)
   await exec(`git config --global user.name "${user}"`)
-  await exec('git fetch')
   await exec('git checkout dev')
   await exec(`git reset --hard origin/${base}`)
 
-  const comment = async (successfulPulls: Pull[]): Promise<void> =>
-    comments
-      ? createComments(token, owner, repo, pulls, successfulPulls)
-      : Promise.resolve()
+  if (pulls.length === 0) {
+    if (await hasDiff('HEAD', `origin/${branch}`)) {
+      await exec('git push -f')
+      info(
+        `🎉 No Pull Requests found. Pushed changes, because "${branch}" and "${base}" diverged.`
+      )
+    } else {
+      info('🎉 No Pull Requests found. Nothing to merge.')
+    }
+    return
+  }
 
   const message = optimistic
     ? await merge(base, pulls, comment)
