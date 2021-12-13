@@ -53,6 +53,8 @@ jobs:
           # E-Mail of the user which does the git commit."
           # Default: staffbot@staffbase.com 
           email: "staffbot@staffbase.com"
+          # A javascript template string for customizing the success / error message of this action.'
+          # template: ${failed ? "The autodev action failed" : "It worked" }
 ```
 
 # Development

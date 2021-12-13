@@ -18,9 +18,10 @@ const autoDev = async (): Promise<void> => {
   const optimistic = getInput('optimistic') === 'true'
   const comments = getInput('comments') === 'false'
   const base = getInput('base') || 'master'
+  const template = getInput('template')
   const comment = async (successfulPulls: Pull[]): Promise<void> =>
     comments
-      ? createComments(token, owner, repo, pulls, successfulPulls)
+      ? createComments(token, owner, repo, pulls, successfulPulls, template)
       : Promise.resolve()
 
   const allPulls = await fetchPulls(token, owner, repo)

@@ -24,22 +24,30 @@ export const fetchPulls = async (
 
 const magicString = '<!---__GENERATED_BY_AUTO_DEV_ACTION-->'
 
-const commentSuccess = (owner: string, repo: string, pulls: Pull[]): string =>
-  `
+const buildComment = (
+  failed: boolean,
+  owner: string,
+  repo: string,
+  pulls: Pull[],
+  template?: string
+): string => {
+  if (template) {
+    return eval(`\`${template}\``)
+  }
+
+  if (failed) {
+    return `
+🚨 Unable to deploy this Pull Request to dev.
+Please check thelogs of the github action. The Pull requests with dev-labels might have merge conflicts.
+`
+  }
+
+  return `
 🟢 Sucessfully deployed to dev.
 The following Pull Requests have been deployed to dev:
 ${pulls.map(pull => `- ${pullURL(owner, repo, pull.number)}`).join('\n')}
-
-${magicString}
 `
-
-const commentFail = (): string =>
-  `
-🚨 Unable to deploy this Pull Request to dev.
-Please check the logs of the github action. The Pull requests with dev-labels might have merge conflicts.
-
-${magicString}
-`
+}
 
 const pullURL = (owner: string, repo: string, number: number): string =>
   `https://github.com/${owner}/${repo}/pull/${number}`
@@ -49,7 +57,8 @@ export const createComments = async (
   owner: string,
   repo: string,
   pulls: Pull[],
-  successfulPulls: Pull[]
+  successfulPulls: Pull[],
+  template?: string
 ): Promise<void> => {
   const octokit = getOctokit(token)
   for (const pull of pulls) {
@@ -75,14 +84,26 @@ export const createComments = async (
         owner,
         repo,
         issue_number: pull.number,
-        body: commentSuccess(owner, repo, successfulPulls)
+        body: `${buildComment(
+          false,
+          owner,
+          repo,
+          successfulPulls,
+          template
+        )}\n\n${magicString}`
       })
     } else {
       await octokit.rest.issues.createComment({
         owner,
         repo,
         issue_number: pull.number,
-        body: commentFail()
+        body: `${buildComment(
+          true,
+          owner,
+          repo,
+          successfulPulls,
+          template
+        )}\n\n${magicString}`
       })
     }
   }

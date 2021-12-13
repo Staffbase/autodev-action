@@ -38,3 +38,6 @@ inputs:
     required: false
     default: 'staffbot@staffbase.com'
     description: 'E-Mail of the user which does the git commit.'
+  template:
+    required: false
+    description: 'A javascript template string for customizing the success / error message of this action.'
