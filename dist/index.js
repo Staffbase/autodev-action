@@ -33,10 +33,12 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     const email = (0, core_1.getInput)('email') || 'staffbot@staffbase.com';
     const optimistic = (0, core_1.getInput)('optimistic') === 'true';
     const comments = (0, core_1.getInput)('comments') === 'true';
+    const customSuccessComment = (0, core_1.getInput)('success_comment');
+    const customFailureComment = (0, core_1.getInput)('failure_comment');
     const base = (0, core_1.getInput)('base') || 'master';
     const comment = (successfulPulls) => __awaiter(void 0, void 0, void 0, function* () {
         return comments
-            ? (0, utils_1.createComments)(token, owner, repo, pulls, successfulPulls)
+            ? (0, utils_1.createComments)(token, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment)
             : Promise.resolve();
     });
     const allPulls = yield (0, utils_1.fetchPulls)(token, owner, repo);
@@ -185,21 +187,18 @@ const fetchPulls = (token, owner, repo) => __awaiter(void 0, void 0, void 0, fun
 });
 exports.fetchPulls = fetchPulls;
 const magicString = '<!---__GENERATED_BY_AUTO_DEV_ACTION-->';
+const appendMagicString = (comment) => [comment, '', magicString].join('\n');
 const commentSuccess = (owner, repo, pulls) => `
 🟢 Sucessfully deployed to dev.
 The following Pull Requests have been deployed to dev:
 ${pulls.map(pull => `- ${pullURL(owner, repo, pull.number)}`).join('\n')}
-
-${magicString}
 `;
 const commentFail = () => `
 🚨 Unable to deploy this Pull Request to dev.
 Please check the logs of the github action. The Pull requests with dev-labels might have merge conflicts.
-
-${magicString}
 `;
 const pullURL = (owner, repo, number) => `https://github.com/${owner}/${repo}/pull/${number}`;
-const createComments = (token, owner, repo, pulls, successfulPulls) => __awaiter(void 0, void 0, void 0, function* () {
+const createComments = (token, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment) => __awaiter(void 0, void 0, void 0, function* () {
     const octokit = (0, github_1.getOctokit)(token);
     for (const pull of pulls) {
         const comments = yield octokit.rest.issues.listComments({
@@ -220,7 +219,7 @@ const createComments = (token, owner, repo, pulls, successfulPulls) => __awaiter
                 owner,
                 repo,
                 issue_number: pull.number,
-                body: commentSuccess(owner, repo, successfulPulls)
+                body: appendMagicString(customSuccessComment !== null && customSuccessComment !== void 0 ? customSuccessComment : commentSuccess(owner, repo, successfulPulls))
             });
         }
         else {
@@ -228,7 +227,7 @@ const createComments = (token, owner, repo, pulls, successfulPulls) => __awaiter
                 owner,
                 repo,
                 issue_number: pull.number,
-                body: commentFail()
+                body: appendMagicString(customFailureComment !== null && customFailureComment !== void 0 ? customFailureComment : commentFail())
             });
         }
     }

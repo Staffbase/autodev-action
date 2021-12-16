@@ -4,6 +4,7 @@
 
 This action merges commits from different Pull requests that have been tagged with the label `dev` into the `dev` branch on your GitHub repository.
 
+# Usage
 ```yaml
 name: Autodev
 on:
@@ -53,6 +54,14 @@ jobs:
           # E-Mail of the user which does the git commit."
           # Default: staffbot@staffbase.com 
           email: "staffbot@staffbase.com"
+```
+
+# Inputs to customize your action:
+```yaml
+# Comment string that will be shown in the Pull request on success.
+success_comment: "🎉 The action successfully merged all branches with the dev label."
+# Comment string that will be shown in the Pull request on failure.
+failure_comment: "⚠️ Something went wrong."
 ```
 
 # Development
