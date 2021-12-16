@@ -32,7 +32,7 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     const user = (0, core_1.getInput)('user') || 'AutoDev Action';
     const email = (0, core_1.getInput)('email') || 'staffbot@staffbase.com';
     const optimistic = (0, core_1.getInput)('optimistic') === 'true';
-    const comments = (0, core_1.getInput)('comments') === 'false';
+    const comments = (0, core_1.getInput)('comments') === 'true';
     const base = (0, core_1.getInput)('base') || 'master';
     const comment = (successfulPulls) => __awaiter(void 0, void 0, void 0, function* () {
         return comments

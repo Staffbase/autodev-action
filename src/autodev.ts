@@ -16,7 +16,7 @@ const autoDev = async (): Promise<void> => {
   const user = getInput('user') || 'AutoDev Action'
   const email = getInput('email') || 'staffbot@staffbase.com'
   const optimistic = getInput('optimistic') === 'true'
-  const comments = getInput('comments') === 'false'
+  const comments = getInput('comments') === 'true'
   const base = getInput('base') || 'master'
   const comment = async (successfulPulls: Pull[]): Promise<void> =>
     comments
