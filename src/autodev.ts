@@ -34,7 +34,7 @@ const autoDev = async (): Promise<void> => {
   await exec('git fetch')
   await exec(`git config --global user.email "${email}"`)
   await exec(`git config --global user.name "${user}"`)
-  await exec('git checkout dev')
+  await exec(`git checkout ${branch}`)
   await exec(`git reset --hard origin/${base}`)
 
   if (pulls.length === 0) {
