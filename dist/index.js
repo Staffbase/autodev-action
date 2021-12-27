@@ -49,7 +49,7 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     yield (0, exec_1.exec)('git fetch');
     yield (0, exec_1.exec)(`git config --global user.email "${email}"`);
     yield (0, exec_1.exec)(`git config --global user.name "${user}"`);
-    yield (0, exec_1.exec)('git checkout dev');
+    yield (0, exec_1.exec)(`git checkout ${branch}`);
     yield (0, exec_1.exec)(`git reset --hard origin/${base}`);
     if (pulls.length === 0) {
         if (yield hasDiff('HEAD', `origin/${branch}`)) {
