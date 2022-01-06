@@ -30,7 +30,7 @@ jobs:
         uses: staffbase/autodev-action@v1
         with:
           # The token used to fetch the pull requests from the GitHub API
-          token: ${{ secrets. PERSONAL_ACCESS_TOKEN }}
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           # This is the base branch. The merge history originates from this branch.
           # Default: master
           base: main
