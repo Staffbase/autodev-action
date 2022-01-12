@@ -24,21 +24,20 @@ export const fetchPulls = async (
 
 const magicString = '<!---__GENERATED_BY_AUTO_DEV_ACTION-->'
 
+const appendMagicString = (comment: string): string =>
+  [comment, '', magicString].join('\n')
+
 const commentSuccess = (owner: string, repo: string, pulls: Pull[]): string =>
   `
 🟢 Sucessfully deployed to dev.
 The following Pull Requests have been deployed to dev:
 ${pulls.map(pull => `- ${pullURL(owner, repo, pull.number)}`).join('\n')}
-
-${magicString}
 `
 
 const commentFail = (): string =>
   `
 🚨 Unable to deploy this Pull Request to dev.
 Please check the logs of the github action. The Pull requests with dev-labels might have merge conflicts.
-
-${magicString}
 `
 
 const pullURL = (owner: string, repo: string, number: number): string =>
@@ -49,7 +48,9 @@ export const createComments = async (
   owner: string,
   repo: string,
   pulls: Pull[],
-  successfulPulls: Pull[]
+  successfulPulls: Pull[],
+  customSuccessComment?: string,
+  customFailureComment?: string
 ): Promise<void> => {
   const octokit = getOctokit(token)
   for (const pull of pulls) {
@@ -75,14 +76,16 @@ export const createComments = async (
         owner,
         repo,
         issue_number: pull.number,
-        body: commentSuccess(owner, repo, successfulPulls)
+        body: appendMagicString(
+          customSuccessComment ?? commentSuccess(owner, repo, successfulPulls)
+        )
       })
     } else {
       await octokit.rest.issues.createComment({
         owner,
         repo,
         issue_number: pull.number,
-        body: commentFail()
+        body: appendMagicString(customFailureComment ?? commentFail())
       })
     }
   }

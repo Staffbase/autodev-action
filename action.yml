@@ -18,6 +18,12 @@ inputs:
     required: false
     default: 'false'
     description: 'If true, the action creates a comment on each PR to inform about the status of the dev branch'
+  success_comment:
+    required: false
+    description: 'Comment string that will be shown in the Pull request on success.'
+  failure_comment:
+    required: false
+    description: 'Comment string that will be shown in the Pull request on failure.'
   base:
     required: false
     default: 'master'
