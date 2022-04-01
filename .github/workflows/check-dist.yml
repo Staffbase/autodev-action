@@ -26,13 +26,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v2.4.1
         with:
-          node-version: 12.x
-
-      - name: Cache Node Dependencies
-        uses: actions/cache@v2
-        with:
-          path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/package-lock.json') }}
+          node-version-file: '.nvmrc'
+          cache: 'npm'
 
       - name: Install Dependencies
         run: npm ci
