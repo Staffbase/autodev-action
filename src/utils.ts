@@ -77,7 +77,7 @@ export const createComments = async (
         repo,
         issue_number: pull.number,
         body: appendMagicString(
-          customSuccessComment ?? commentSuccess(owner, repo, successfulPulls)
+          customSuccessComment || commentSuccess(owner, repo, successfulPulls)
         )
       })
     } else {
@@ -85,7 +85,7 @@ export const createComments = async (
         owner,
         repo,
         issue_number: pull.number,
-        body: appendMagicString(customFailureComment ?? commentFail())
+        body: appendMagicString(customFailureComment || commentFail())
       })
     }
   }
