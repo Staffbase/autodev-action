@@ -18,7 +18,7 @@ jobs:
         uses: dawidd6/action-get-tag@v1
 
       - name: Publish Changelog
-        uses: release-drafter/release-drafter@v5.15.0
+        uses: release-drafter/release-drafter@v5.19.0
         with:
           publish: true
           name: ${{ steps.tag.outputs.tag }}
