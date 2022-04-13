@@ -9,19 +9,16 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-20.04
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Retrieve Git Tag
-        id: tag
-        uses: dawidd6/action-get-tag@v1
 
       - name: Publish Changelog
         uses: release-drafter/release-drafter@v5.19.0
         with:
           publish: true
-          name: ${{ steps.tag.outputs.tag }}
-          tag: ${{ steps.tag.outputs.tag }}
+          name: ${{ github.ref_name }}
+          tag: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
