@@ -6,22 +6,9 @@ on:
       - '*'
 
 jobs:
-  release:
-    name: Release
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Retrieve Git Tag
-        id: tag
-        uses: dawidd6/action-get-tag@v1
-
-      - name: Publish Changelog
-        uses: release-drafter/release-drafter@v5.19.0
-        with:
-          publish: true
-          name: ${{ steps.tag.outputs.tag }}
-          tag: ${{ steps.tag.outputs.tag }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  update_release_draft:
+    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@v1.1.0
+    with:
+      publish: true
+      name: ${{ github.ref_name }}
+      tag: ${{ github.ref_name }}
