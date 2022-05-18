@@ -109,7 +109,6 @@ export const updateLabels = async (
   info('update label')
 
   for (const pull of pulls) {
-    info(JSON.stringify(pull))
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
     const hasSuccessfulLabel = pull.labels.some(
       label => label === customSuccessLabel
@@ -134,7 +133,6 @@ export const updateLabels = async (
       })
     }
 
-    info(`add label: ${successful ? customFailureLabel : customSuccessLabel}`)
     await octokit.rest.issues.addLabels({
       owner,
       repo,
