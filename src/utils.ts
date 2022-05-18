@@ -101,9 +101,6 @@ export const updateLabels = async (
   for (const pull of pulls) {
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
 
-    octokit.log.info('update labels')
-    info('update labels 2')
-
     octokit.rest.issues.addLabels({
       owner,
       repo,

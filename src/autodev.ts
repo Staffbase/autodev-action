@@ -139,8 +139,9 @@ const merge = async (
     .map(p => `- ${p.branch}`)
     .join('\n')}`
   await exec('git commit -m', [message])
+  info('test')
   await comment(success)
-  await label(pulls)
+  await label(success)
   return message
 }
 
