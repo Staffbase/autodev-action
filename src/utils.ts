@@ -1,5 +1,6 @@
 import {components} from '@octokit/openapi-types'
 import {getOctokit} from '@actions/github'
+import {info} from "@actions/core";
 
 type PullsListResponseData = components['schemas']['pull-request-simple'][]
 
@@ -99,6 +100,9 @@ export const updateLabels = async (
   const octokit = getOctokit(token)
   for (const pull of pulls) {
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
+
+    octokit.log.info('update labels')
+    info('update labels 2')
 
     octokit.rest.issues.addLabels({
       owner,

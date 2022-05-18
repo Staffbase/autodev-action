@@ -33,7 +33,7 @@ inputs:
   success_label:
     required: false
     description: 'Label string that will be add on the Pull request on success.'
-    default: 'success'
+    default: 'successful'
   failure_label:
     required: false
     description: 'Label string that will be add on the Pull request on failure.'
