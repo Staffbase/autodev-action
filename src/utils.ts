@@ -71,22 +71,18 @@ export const createComments = async (
       })
     }
 
-    if (successfulPulls.some(sp => sp.branch === pull.branch)) {
-      await octokit.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: pull.number,
-        body: appendMagicString(
+    const successful = successfulPulls.some(sp => sp.branch === pull.branch)
+    const message = successful
+      ? appendMagicString(
           customSuccessComment || commentSuccess(owner, repo, successfulPulls)
         )
-      })
-    } else {
-      await octokit.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: pull.number,
-        body: appendMagicString(customFailureComment || commentFail())
-      })
-    }
+      : appendMagicString(customFailureComment || commentFail())
+
+    await octokit.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: pull.number,
+      body: message
+    })
   }
 }
