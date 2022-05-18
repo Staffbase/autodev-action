@@ -129,6 +129,7 @@ export const updateLabels = async (
       })
     }
 
+    info(`add label: ${successful ? customFailureLabel : customSuccessLabel}`)
     await octokit.rest.issues.addLabels({
       owner,
       repo,
