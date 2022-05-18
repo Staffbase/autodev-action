@@ -1,5 +1,6 @@
 import {components} from '@octokit/openapi-types'
 import {getOctokit} from '@actions/github'
+import {info} from '@actions/core'
 
 type PullsListResponseData = components['schemas']['pull-request-simple'][]
 
@@ -71,9 +72,10 @@ export const createComments = async (
     const previousComments = comments.data.filter(
       comment => comment.body && comment.body.includes(magicString)
     )
+    info(`check 1: ${previousComments}`)
     if (previousComments.length !== 0) {
       const lastComment = previousComments[0]
-
+      info('update status comment')
       await octokit.rest.issues.updateComment({
         owner,
         repo,
@@ -83,7 +85,7 @@ export const createComments = async (
 
       continue
     }
-
+    info('create status comment')
     // create comment for new pull request
     await octokit.rest.issues.createComment({
       owner,
