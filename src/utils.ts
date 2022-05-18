@@ -109,7 +109,7 @@ export const updateLabels = async (
   info('update label')
 
   for (const pull of pulls) {
-    info(`${pull}`)
+    info(JSON.stringify(pull))
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
     const hasSuccessfulLabel = pull.labels.some(
       label => label === customSuccessLabel

@@ -246,7 +246,7 @@ exports.createComments = createComments;
 const updateLabels = (octokit, owner, repo, pulls, successfulPulls, customSuccessLabel, customFailureLabel) => __awaiter(void 0, void 0, void 0, function* () {
     (0, core_1.info)('update label');
     for (const pull of pulls) {
-        (0, core_1.info)(`${pull}`);
+        (0, core_1.info)(JSON.stringify(pull));
         const successful = successfulPulls.some(sp => sp.branch === pull.branch);
         const hasSuccessfulLabel = pull.labels.some(label => label === customSuccessLabel);
         const hasFailureLabel = pull.labels.some(label => label === customFailureLabel);
