@@ -104,20 +104,29 @@ export const updateLabels = async (
 
   const octokit = getOctokit(token)
   for (const pull of pulls) {
+    info(`${pull}`)
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
+    const hasSuccessfulLabel = pull.labels.some(
+      label => label === customSuccessLabel
+    )
+    const hasFailureLabel = pull.labels.some(
+      label => label === customFailureLabel
+    )
 
     if (
-      (successful && pull.labels.some(label => label === customSuccessLabel)) ||
-      (!successful && pull.labels.some(label => label === customFailureLabel))
+      (successful && hasSuccessfulLabel) ||
+      (!successful && hasFailureLabel)
     ) {
       continue
     }
 
-    await octokit.rest.issues.deleteLabel({
-      owner,
-      repo,
-      name: successful ? customFailureLabel : customSuccessLabel
-    })
+    if (hasSuccessfulLabel || hasFailureLabel) {
+      await octokit.rest.issues.deleteLabel({
+        owner,
+        repo,
+        name: successful ? customFailureLabel : customSuccessLabel
+      })
+    }
 
     await octokit.rest.issues.addLabels({
       owner,

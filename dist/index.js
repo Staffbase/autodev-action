@@ -244,16 +244,20 @@ const updateLabels = (token, owner, repo, pulls, successfulPulls, customSuccessL
     (0, core_1.info)('update label');
     const octokit = (0, github_1.getOctokit)(token);
     for (const pull of pulls) {
+        (0, core_1.info)(`${pull}`);
         const successful = successfulPulls.some(sp => sp.branch === pull.branch);
-        if ((successful && pull.labels.some(label => label === customSuccessLabel)) ||
-            (!successful && pull.labels.some(label => label === customFailureLabel))) {
+        const hasSuccessfulLabel = pull.labels.some(label => label === customSuccessLabel);
+        const hasFailureLabel = pull.labels.some(label => label === customFailureLabel);
+        if ((successful && hasSuccessfulLabel) || (!successful && hasFailureLabel)) {
             continue;
         }
-        yield octokit.rest.issues.deleteLabel({
-            owner,
-            repo,
-            name: successful ? customFailureLabel : customSuccessLabel
-        });
+        if (hasSuccessfulLabel || hasFailureLabel) {
+            yield octokit.rest.issues.deleteLabel({
+                owner,
+                repo,
+                name: successful ? customFailureLabel : customSuccessLabel
+            });
+        }
         yield octokit.rest.issues.addLabels({
             owner,
             repo,
