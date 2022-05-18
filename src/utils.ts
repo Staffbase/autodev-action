@@ -1,6 +1,6 @@
 import {components} from '@octokit/openapi-types'
 import {getOctokit} from '@actions/github'
-import {info} from "@actions/core";
+import {info} from '@actions/core'
 
 type PullsListResponseData = components['schemas']['pull-request-simple'][]
 
@@ -53,6 +53,8 @@ export const createComments = async (
   customSuccessComment: string,
   customFailureComment: string
 ): Promise<void> => {
+  info('update comment')
+
   const octokit = getOctokit(token)
   for (const pull of pulls) {
     const comments = await octokit.rest.issues.listComments({
@@ -97,6 +99,8 @@ export const updateLabels = async (
   customSuccessLabel: string,
   customFailureLabel: string
 ): Promise<void> => {
+  info('update label')
+
   const octokit = getOctokit(token)
   for (const pull of pulls) {
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
