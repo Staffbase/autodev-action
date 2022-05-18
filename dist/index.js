@@ -262,6 +262,7 @@ const updateLabels = (octokit, owner, repo, pulls, successfulPulls, customSucces
                 name: successful ? customFailureLabel : customSuccessLabel
             });
         }
+        (0, core_1.info)(`add label: ${successful ? customFailureLabel : customSuccessLabel}`);
         yield octokit.rest.issues.addLabels({
             owner,
             repo,
