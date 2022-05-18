@@ -253,12 +253,15 @@ const updateLabels = (token, owner, repo, pulls, successfulPulls, customSuccessL
             continue;
         }
         if (hasSuccessfulLabel || hasFailureLabel) {
-            yield octokit.rest.issues.deleteLabel({
+            (0, core_1.info)(`remove label: ${successful ? customFailureLabel : customSuccessLabel}`);
+            yield octokit.rest.issues.removeLabel({
                 owner,
                 repo,
+                issue_number: pull.number,
                 name: successful ? customFailureLabel : customSuccessLabel
             });
         }
+        (0, core_1.info)(`add label: ${successful ? customFailureLabel : customSuccessLabel}`);
         yield octokit.rest.issues.addLabels({
             owner,
             repo,

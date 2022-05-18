@@ -121,13 +121,18 @@ export const updateLabels = async (
     }
 
     if (hasSuccessfulLabel || hasFailureLabel) {
-      await octokit.rest.issues.deleteLabel({
+      info(
+        `remove label: ${successful ? customFailureLabel : customSuccessLabel}`
+      )
+      await octokit.rest.issues.removeLabel({
         owner,
         repo,
+        issue_number: pull.number,
         name: successful ? customFailureLabel : customSuccessLabel
       })
     }
 
+    info(`add label: ${successful ? customFailureLabel : customSuccessLabel}`)
     await octokit.rest.issues.addLabels({
       owner,
       repo,
