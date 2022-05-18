@@ -1,49 +1,77 @@
 import autoDev from '../src/autodev'
 import * as exec from '@actions/exec'
 import * as core from '@actions/core'
-
-jest.mock('../src/utils', () => ({
-  getRepoString: () => '@staffbase/auto-dev-action',
-  createComments: () => Promise.resolve(),
-  fetchPulls: async () => [
-    {
-      labels: [{name: 'dev'}],
-      head: {
-        ref: 'feature-1'
-      }
-    },
-    {
-      labels: [{name: 'not-dev'}],
-      head: {
-        ref: 'feature-2'
-      }
-    },
-    {
-      labels: [{name: 'dev'}],
-      head: {
-        ref: 'feature-3'
-      }
-    }
-  ]
-}))
+import * as utils from '../src/utils'
 
 describe('autodev', () => {
-  it('it runs', async () => {
+  let info: jest.SpyInstance
+  let commentsSpy: jest.SpyInstance
+
+  beforeEach(() => {
+    commentsSpy = jest.spyOn(utils, 'createComments').mockResolvedValue()
+    jest
+      .spyOn(utils, 'getRepoString')
+      .mockReturnValue('@staffbase/auto-dev-action')
+    jest.spyOn(utils, 'fetchPulls').mockResolvedValue([
+      {
+        labels: [{name: 'dev'}],
+        // @ts-ignore
+        head: {
+          ref: 'feature-1'
+        }
+      },
+      {
+        labels: [{name: 'not-dev'}],
+        // @ts-ignore
+        head: {
+          ref: 'feature-2'
+        }
+      },
+      {
+        labels: [{name: 'dev'}],
+        // @ts-ignore
+        head: {
+          ref: 'feature-3'
+        }
+      }
+    ])
+
+    info = jest.spyOn(core, 'info')
     jest.spyOn(exec, 'exec').mockResolvedValue(0)
+  })
+
+  afterEach(() => jest.clearAllMocks())
+
+  it('should merge two pull requests', async () => {
     jest
       .spyOn(core, 'getInput')
       .mockImplementation(
         input =>
-          ({optimistic: 'true', token: 'token', base: 'master'}[input] || '')
+          ({optimistic: 'true', token: 'token', base: 'main'}[input] || '')
       )
 
-    const info = jest.spyOn(core, 'info')
     await autoDev()
 
+    expect(commentsSpy).not.toHaveBeenCalled()
     expect(info).toHaveBeenCalledWith(`AutoDev Merge
 
 The following branches have been merged:
 - feature-1
 - feature-3`)
+  })
+
+  it('should add successful comments', async () => {
+    jest
+      .spyOn(core, 'getInput')
+      .mockImplementation(
+        input =>
+          ({optimistic: 'true', token: 'token', base: 'main', comments: 'true'}[
+            input
+          ] || '')
+      )
+
+    await autoDev()
+
+    expect(commentsSpy).toHaveBeenCalled()
   })
 })

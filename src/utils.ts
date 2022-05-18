@@ -49,8 +49,8 @@ export const createComments = async (
   repo: string,
   pulls: Pull[],
   successfulPulls: Pull[],
-  customSuccessComment?: string,
-  customFailureComment?: string
+  customSuccessComment: string,
+  customFailureComment: string
 ): Promise<void> => {
   const octokit = getOctokit(token)
   for (const pull of pulls) {

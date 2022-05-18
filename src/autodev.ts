@@ -20,6 +20,7 @@ const autoDev = async (): Promise<void> => {
   const customSuccessComment = getInput('success_comment') || ''
   const customFailureComment = getInput('failure_comment') || ''
   const base = getInput('base') || 'master'
+
   const comment = async (successfulPulls: Pull[]): Promise<void> =>
     comments
       ? createComments(
