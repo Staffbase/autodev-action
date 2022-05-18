@@ -7,6 +7,7 @@ type PullsListResponseData = components['schemas']['pull-request-simple'][]
 export interface Pull {
   number: number
   branch: string
+  labels: (string | undefined)[]
 }
 
 export const getRepoString = (): undefined | string => {
@@ -105,17 +106,24 @@ export const updateLabels = async (
   for (const pull of pulls) {
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
 
-    octokit.rest.issues.addLabels({
+    if (
+      (successful && pull.labels.some(label => label === customSuccessLabel)) ||
+      (!successful && pull.labels.some(label => label === customFailureLabel))
+    ) {
+      continue
+    }
+
+    await octokit.rest.issues.deleteLabel({
+      owner,
+      repo,
+      name: successful ? customFailureLabel : customSuccessLabel
+    })
+
+    await octokit.rest.issues.addLabels({
       owner,
       repo,
       issue_number: pull.number,
       labels: [successful ? customSuccessLabel : customFailureLabel]
-    })
-
-    octokit.rest.issues.deleteLabel({
-      owner,
-      repo,
-      name: successful ? customFailureLabel : customSuccessLabel
     })
   }
 }

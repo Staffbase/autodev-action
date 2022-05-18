@@ -54,7 +54,8 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
         .filter(pull => pull.labels.some(l => l.name === label))
         .map(pull => ({
         number: pull.number,
-        branch: pull.head.ref
+        branch: pull.head.ref,
+        labels: pull.labels.map(l => l.name)
     }));
     yield (0, exec_1.exec)('git fetch');
     yield (0, exec_1.exec)(`git config --global user.email "${email}"`);
@@ -244,16 +245,20 @@ const updateLabels = (token, owner, repo, pulls, successfulPulls, customSuccessL
     const octokit = (0, github_1.getOctokit)(token);
     for (const pull of pulls) {
         const successful = successfulPulls.some(sp => sp.branch === pull.branch);
-        octokit.rest.issues.addLabels({
+        if ((successful && pull.labels.some(label => label === customSuccessLabel)) ||
+            (!successful && pull.labels.some(label => label === customFailureLabel))) {
+            continue;
+        }
+        yield octokit.rest.issues.deleteLabel({
+            owner,
+            repo,
+            name: successful ? customFailureLabel : customSuccessLabel
+        });
+        yield octokit.rest.issues.addLabels({
             owner,
             repo,
             issue_number: pull.number,
             labels: [successful ? customSuccessLabel : customFailureLabel]
-        });
-        octokit.rest.issues.deleteLabel({
-            owner,
-            repo,
-            name: successful ? customFailureLabel : customSuccessLabel
         });
     }
 });

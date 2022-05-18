@@ -65,7 +65,8 @@ const autoDev = async (): Promise<void> => {
     .filter(pull => pull.labels.some(l => l.name === label))
     .map(pull => ({
       number: pull.number,
-      branch: pull.head.ref
+      branch: pull.head.ref,
+      labels: pull.labels.map(l => l.name)
     }))
 
   await exec('git fetch')
