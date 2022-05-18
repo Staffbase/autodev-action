@@ -21,9 +21,11 @@ inputs:
   success_comment:
     required: false
     description: 'Comment string that will be shown in the Pull request on success.'
+    default: ''
   failure_comment:
     required: false
     description: 'Comment string that will be shown in the Pull request on failure.'
+    default: ''
   base:
     required: false
     default: 'master'

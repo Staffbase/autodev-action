@@ -59,8 +59,10 @@ jobs:
 # Inputs to customize your action:
 ```yaml
 # Comment string that will be shown in the Pull request on success.
+# Default: '' (using a default message)
 success_comment: "🎉 The action successfully merged all branches with the dev label."
 # Comment string that will be shown in the Pull request on failure.
+# Default: '' (using a default message)
 failure_comment: "⚠️ Something went wrong."
 ```
 
