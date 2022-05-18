@@ -86,3 +86,31 @@ export const createComments = async (
     })
   }
 }
+
+export const updateLabels = async (
+  token: string,
+  owner: string,
+  repo: string,
+  pulls: Pull[],
+  successfulPulls: Pull[],
+  customSuccessLabel: string,
+  customFailureLabel: string
+): Promise<void> => {
+  const octokit = getOctokit(token)
+  for (const pull of pulls) {
+    const successful = successfulPulls.some(sp => sp.branch === pull.branch)
+
+    octokit.rest.issues.addLabels({
+      owner,
+      repo,
+      issue_number: pull.number,
+      labels: [successful ? customSuccessLabel : customFailureLabel]
+    })
+
+    octokit.rest.issues.deleteLabel({
+      owner,
+      repo,
+      name: successful ? customFailureLabel : customSuccessLabel
+    })
+  }
+}
