@@ -31,7 +31,7 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     const email = (0, core_1.getInput)('email') || 'staffbot@staffbase.com';
     const label = (0, core_1.getInput)('label') || 'dev';
     const branch = (0, core_1.getInput)('branch') || 'dev';
-    const base = (0, core_1.getInput)('base') || 'master';
+    const base = (0, core_1.getInput)('base') || 'main';
     const optimistic = (0, core_1.getInput)('optimistic') === 'true';
     const comments = (0, core_1.getInput)('comments') === 'true';
     const customSuccessComment = (0, core_1.getInput)('success_comment') || '';
@@ -224,7 +224,6 @@ const createComments = (octokit, owner, repo, pulls, successfulPulls, customSucc
         const message = successful
             ? appendMagicString(customSuccessComment || commentSuccess(owner, repo, successfulPulls))
             : appendMagicString(customFailureComment || commentFail());
-<<<<<<< HEAD
         const previousComment = comments.data.find(comment => { var _a; return (_a = comment.body) === null || _a === void 0 ? void 0 : _a.includes(magicString); });
         if (!previousComment) {
             yield octokit.rest.issues.createComment({
@@ -236,17 +235,6 @@ const createComments = (octokit, owner, repo, pulls, successfulPulls, customSucc
             continue;
         }
         yield octokit.rest.issues.updateComment({
-=======
-        const previousComments = comments.data.filter(comment => comment.body && comment.body.includes(magicString));
-        if (previousComments.length !== 0) {
-            const lastComment = previousComments[0];
-            yield octokit.rest.issues.updateComment({
-                owner, repo, comment_id: lastComment.id, body: message
-            });
-            continue;
-        }
-        yield octokit.rest.issues.createComment({
->>>>>>> 9e65ee1 (:art: udpate status comment)
             owner,
             repo,
             comment_id: previousComment.id,
