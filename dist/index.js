@@ -219,18 +219,18 @@ const createComments = (token, owner, repo, pulls, successfulPulls, customSucces
             repo,
             issue_number: pull.number
         });
-        const previousComments = comments.data.filter(comment => comment.body && comment.body.includes(magicString));
-        for (const comment of previousComments) {
-            yield octokit.rest.issues.deleteComment({
-                owner,
-                repo,
-                comment_id: comment.id
-            });
-        }
         const successful = successfulPulls.some(sp => sp.branch === pull.branch);
         const message = successful
             ? appendMagicString(customSuccessComment || commentSuccess(owner, repo, successfulPulls))
             : appendMagicString(customFailureComment || commentFail());
+        const previousComments = comments.data.filter(comment => comment.body && comment.body.includes(magicString));
+        if (previousComments.length !== 0) {
+            const lastComment = previousComments[0];
+            yield octokit.rest.issues.updateComment({
+                owner, repo, comment_id: lastComment.id, body: message
+            });
+            continue;
+        }
         yield octokit.rest.issues.createComment({
             owner,
             repo,
