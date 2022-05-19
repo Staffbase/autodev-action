@@ -56,7 +56,7 @@ You can find all input options which are available for this action.
 
 # Example Usages
 
-Always create the dev branch
+Always create the dev branch.
 
 ```yaml
 - name: Autodev
@@ -96,14 +96,4 @@ Very nice that you want to work on the action. To create a working implementatio
 
 ```bash
 npm run all
-```
-
-Otherwise, it can also be performed individually.
-
-```bash
-npm run build # typecheck
-npm run format # format code
-npm run lint # lint code
-npm run package # build package
-npm test # run tests
 ```
