@@ -48,6 +48,9 @@ jobs:
           # The GitHub action creates a new comment inside every pull request.
           # Default: false
           comments: false
+          # The GitHub action updates the labels inside every pull request for successful or failed merges to the dev branch.
+          # Default: false
+          labels: false
           # Name of the user which does the git commit.
           # Default: AutoDev Action
           user: "AutoDev Action"
@@ -64,6 +67,12 @@ success_comment: "🎉 The action successfully merged all branches with the dev 
 # Comment string that will be shown in the Pull request on failure.
 # Default: '' (using a default message)
 failure_comment: "⚠️ Something went wrong."
+# Label string that will be shown on the Pull request on success.
+# Default: successful
+success_label: 'successful'
+# Label string that will be shown on the Pull request on failure.
+# Default: failed
+failure_label: 'failed'
 ```
 
 # Development
