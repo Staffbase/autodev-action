@@ -1,6 +1,6 @@
 {
   "name": "autodev-action",
-  "version": "v1.3.0",
+  "version": "v1.4.0",
   "description": "Github Action that tries to merge all commits from a PR with the dev label into the dev branch.",
   "main": "lib/index.js",
   "scripts": {
