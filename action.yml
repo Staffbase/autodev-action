@@ -40,7 +40,7 @@ inputs:
     default: 'failed'
   base:
     required: false
-    default: 'master'
+    default: 'main'
     description: 'This is the base branch. The merge history originates from this branch.'
   label:
     required: false

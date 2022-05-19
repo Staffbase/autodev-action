@@ -23,7 +23,7 @@ const autoDev = async (): Promise<void> => {
 
   const label = getInput('label') || 'dev'
   const branch = getInput('branch') || 'dev'
-  const base = getInput('base') || 'master'
+  const base = getInput('base') || 'main'
 
   const optimistic = getInput('optimistic') === 'true'
 

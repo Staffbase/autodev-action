@@ -33,7 +33,7 @@ jobs:
           # The token used to fetch the pull requests from the GitHub API
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           # This is the base branch. The merge history originates from this branch.
-          # Default: master
+          # Default: main
           base: main
           # The label where the action will be triggered.
           # Default: dev
