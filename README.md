@@ -74,8 +74,8 @@ Add a status comment if the merge was successful or failed.
   with:
     token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     comments: true
-    success_comment: "🎉 The action successfully merged all branches with the dev label."
-    failure_comment: "⚠️ Something went wrong."
+    success_comment: '🎉 The action successfully merged all branches with the dev label.'
+    failure_comment: '⚠️ Something went wrong.'
 ```
 
 Add a status label if the merge was successful or failed.
