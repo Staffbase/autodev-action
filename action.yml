@@ -10,6 +10,18 @@ inputs:
   token:
     required: true
     description: GitHub token of the user that fetches the pull requests
+  base:
+    required: false
+    default: 'main'
+    description: 'This is the base branch. The merge history originates from this branch.'
+  label:
+    required: false
+    default: 'dev'
+    description: 'The label where the action will be triggered.'
+  branch:
+    required: false
+    default: 'dev'
+    description: 'The branch the action will merge the Pull Requests to.'
   optimistic:
     required: false
     default: 'true'
@@ -38,18 +50,6 @@ inputs:
     required: false
     description: 'Label string that will be add on the Pull request on failure.'
     default: 'failed'
-  base:
-    required: false
-    default: 'main'
-    description: 'This is the base branch. The merge history originates from this branch.'
-  label:
-    required: false
-    default: 'dev'
-    description: 'The label where the action will be triggered.'
-  branch:
-    required: false
-    default: 'dev'
-    description: 'The branch the action will merge the Pull Requests to.'
   user:
     required: false
     default: 'AutoDev Action'

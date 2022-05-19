@@ -1,10 +1,10 @@
-# AutoDev Action
+# 👷 AutoDev Action
 
-[![Continuous Integration](https://github.com/Staffbase/autodev-action/actions/workflows/integration.yml/badge.svg)](https://github.com/Staffbase/autodev-action/actions/workflows/integration.yml) 
+[![Continuous Integration](https://github.com/Staffbase/autodev-action/actions/workflows/integration.yml/badge.svg)](https://github.com/Staffbase/autodev-action/actions/workflows/integration.yml)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Staffbase/autodev-action)](https://github.com/Staffbase/autodev-action/releases)
 
-This action merges commits from different Pull requests that have been tagged with the label `dev` into the `dev` branch on your GitHub repository.
+This action merges commits from different pull requests that have been tagged with the label `dev` into the `dev` branch on your GitHub repository.
 
-# Usage
 ```yaml
 name: Autodev
 on:
@@ -28,75 +28,82 @@ jobs:
           fetch-depth: 0
 
       - name: Autodev
-        uses: staffbase/autodev-action@v1.3.0
+        uses: Staffbase/autodev-action@v1.4.0
         with:
           # The token used to fetch the pull requests from the GitHub API
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          # This is the base branch. The merge history originates from this branch.
-          # Default: main
-          base: main
-          # The label where the action will be triggered.
-          # Default: dev
-          label: dev
-          # The branch the action will merge the Pull Requests to.
-          # Default: dev
-          branch: dev
-          # Whether the action should perform an "optimistic" merge of the given Pull requests.
-          # If this is set to false, the dev branch is only built if there are zero merge conflicts between branches.
-          # Default: false
-          optimistic: true
-          # The GitHub action creates a new comment inside every pull request.
-          # Default: false
-          comments: false
-          # The GitHub action updates the labels inside every pull request for successful or failed merges to the dev branch.
-          # Default: false
-          labels: false
-          # Name of the user which does the git commit.
-          # Default: AutoDev Action
-          user: "AutoDev Action"
-          # E-Mail of the user which does the git commit."
-          # Default: staffbot@staffbase.com 
-          email: "staffbot@staffbase.com"
 ```
 
-# Inputs to customize your action:
+# All options
+
+You can find all input options which are available for this action.
+
+| **Input**       | **Description**                                                                                                                                                                               | **Default**            |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------|
+| token           | PAT for GitHub API authentication                                                                                                                                                             |                        |
+| base            | This is the base branch. The merge history originates from this branch.                                                                                                                       | main                   |
+| branch          | The branch the action will merge the pull requests to.                                                                                                                                        | dev                    |
+| label           | The label where the action will be triggered.                                                                                                                                                 | dev                    |
+| optimistic      | Whether the action should perform an "optimistic" merge of the given Pull requests. If this is set to false, the dev branch is only built if there are zero merge conflicts between branches. | false                  |
+| comments        | The GitHub action creates a new comment inside every pull request.                                                                                                                            | false                  |
+| success_comment | Comment string that will be shown in the pull request on success. Only necessary if `comments` is enabled.                                                                                    | ''                     |
+| failure_comment | Comment string that will be shown in the pull request on failure. Only necessary if `comments` is enabled.                                                                                    | ''                     |
+| labels          | The GitHub action updates the labels inside every pull request for successful or failed merges to the dev branch.                                                                             | false                  |
+| success_label   | Label string that will be shown on the Pull request on success. Only necessary if `labels` is enabled.                                                                                        | successful             |
+| failure_label   | Label string that will be shown on the Pull request on failure. Only necessary if `labels` is enabled.                                                                                        | failed                 |
+| user            | Name of the user which does the git commit.                                                                                                                                                   | AutoDev Action         |
+| email           | E-Mail of the user which does the git commit.                                                                                                                                                 | staffbot@staffbase.com |
+
+# Example Usages
+
+Always create the dev branch
+
 ```yaml
-# Comment string that will be shown in the Pull request on success.
-# Default: '' (using a default message)
-success_comment: "🎉 The action successfully merged all branches with the dev label."
-# Comment string that will be shown in the Pull request on failure.
-# Default: '' (using a default message)
-failure_comment: "⚠️ Something went wrong."
-# Label string that will be shown on the Pull request on success.
-# Default: successful
-success_label: 'successful'
-# Label string that will be shown on the Pull request on failure.
-# Default: failed
-failure_label: 'failed'
+- name: Autodev
+  uses: Staffbase/autodev-action@v1.4.0
+  with:
+    token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    optimistic: true
+```
+
+Add a status comment if the merge was successful or failed.
+
+```yaml
+- name: Autodev
+  uses: Staffbase/autodev-action@v1.4.0
+  with:
+    token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    comments: true
+    success_comment: "🎉 The action successfully merged all branches with the dev label."
+    failure_comment: "⚠️ Something went wrong."
+```
+
+Add a status label if the merge was successful or failed.
+
+```yaml
+- name: Autodev
+  uses: Staffbase/autodev-action@v1.4.0
+  with:
+    token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    labels: true
+    success_label: 'successful'
+    failure_label: 'failed'
 ```
 
 # Development
 
-### Run Tests
+Very nice that you want to work on the action. To create a working implementation, you can use the following command to perform all the necessary actions.
 
-```
-npm test
-```
-
-### Typecheck
-
-```
-npm build
+```bash
+npm run all
 ```
 
-### Format code
+Otherwise, it can also be performed individually.
 
-```
-npm format
-```
-
-### Lint code
-
-```
-npm lint
+```bash
+npm run build # typecheck
+npm run format # format code
+npm run lint # lint code
+npm run package # build package
+npm test # run tests
 ```
