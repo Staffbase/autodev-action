@@ -6,8 +6,10 @@ import * as utils from '../src/utils'
 describe('autodev', () => {
   let info: jest.SpyInstance
   let commentsSpy: jest.SpyInstance
+  let labelsSpy: jest.SpyInstance
 
   beforeEach(() => {
+    labelsSpy = jest.spyOn(utils, 'updateLabels').mockResolvedValue()
     commentsSpy = jest.spyOn(utils, 'createComments').mockResolvedValue()
     jest
       .spyOn(utils, 'getRepoString')
@@ -73,5 +75,20 @@ The following branches have been merged:
     await autoDev()
 
     expect(commentsSpy).toHaveBeenCalled()
+  })
+
+  it('should add successful labels', async () => {
+    jest
+      .spyOn(core, 'getInput')
+      .mockImplementation(
+        input =>
+          ({optimistic: 'true', token: 'token', base: 'main', labels: 'true'}[
+            input
+          ] || '')
+      )
+
+    await autoDev()
+
+    expect(labelsSpy).toHaveBeenCalled()
   })
 })
