@@ -39,17 +39,18 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     const labels = (0, core_1.getInput)('labels') === 'true';
     const customSuccessLabel = (0, core_1.getInput)('success_label') || 'successful';
     const customFailureLabel = (0, core_1.getInput)('failure_label') || 'failed';
+    const octokit = (0, utils_1.createOctokit)(token);
     const updateComment = (successfulPulls) => __awaiter(void 0, void 0, void 0, function* () {
         return comments
-            ? (0, utils_1.createComments)(token, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment)
+            ? (0, utils_1.createComments)(octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment)
             : Promise.resolve();
     });
     const updateLabel = (successfulPulls) => __awaiter(void 0, void 0, void 0, function* () {
         return labels
-            ? (0, utils_1.updateLabels)(token, owner, repo, pulls, successfulPulls, customSuccessLabel, customFailureLabel)
+            ? (0, utils_1.updateLabels)(octokit, owner, repo, pulls, successfulPulls, customSuccessLabel, customFailureLabel)
             : Promise.resolve();
     });
-    const allPulls = yield (0, utils_1.fetchPulls)(token, owner, repo);
+    const allPulls = yield (0, utils_1.fetchPulls)(octokit, owner, repo);
     const pulls = allPulls
         .filter(pull => pull.labels.some(l => l.name === label))
         .map(pull => ({
@@ -185,15 +186,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.updateLabels = exports.createComments = exports.fetchPulls = exports.getRepoString = void 0;
+exports.updateLabels = exports.createComments = exports.fetchPulls = exports.createOctokit = exports.getRepoString = void 0;
 const github_1 = __nccwpck_require__(5438);
 const core_1 = __nccwpck_require__(2186);
 const getRepoString = () => {
     return process.env['GITHUB_REPOSITORY'];
 };
 exports.getRepoString = getRepoString;
-const fetchPulls = (token, owner, repo) => __awaiter(void 0, void 0, void 0, function* () {
-    const octokit = (0, github_1.getOctokit)(token);
+const createOctokit = (token) => (0, github_1.getOctokit)(token);
+exports.createOctokit = createOctokit;
+const fetchPulls = (octokit, owner, repo) => __awaiter(void 0, void 0, void 0, function* () {
     const { data: allPulls } = yield octokit.rest.pulls.list({ owner, repo });
     return allPulls;
 });
@@ -210,9 +212,8 @@ const commentFail = () => `
 Please check the logs of the github action. The Pull requests with dev-labels might have merge conflicts.
 `;
 const pullURL = (owner, repo, number) => `https://github.com/${owner}/${repo}/pull/${number}`;
-const createComments = (token, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment) => __awaiter(void 0, void 0, void 0, function* () {
+const createComments = (octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment) => __awaiter(void 0, void 0, void 0, function* () {
     (0, core_1.info)('update comment');
-    const octokit = (0, github_1.getOctokit)(token);
     for (const pull of pulls) {
         const comments = yield octokit.rest.issues.listComments({
             owner,
@@ -242,9 +243,8 @@ const createComments = (token, owner, repo, pulls, successfulPulls, customSucces
     }
 });
 exports.createComments = createComments;
-const updateLabels = (token, owner, repo, pulls, successfulPulls, customSuccessLabel, customFailureLabel) => __awaiter(void 0, void 0, void 0, function* () {
+const updateLabels = (octokit, owner, repo, pulls, successfulPulls, customSuccessLabel, customFailureLabel) => __awaiter(void 0, void 0, void 0, function* () {
     (0, core_1.info)('update label');
-    const octokit = (0, github_1.getOctokit)(token);
     for (const pull of pulls) {
         const successful = successfulPulls.some(sp => sp.branch === pull.branch);
         const hasSuccessfulLabel = pull.labels.some(label => label === customSuccessLabel);

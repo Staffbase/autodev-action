@@ -1,3 +1,4 @@
+import {GitHub} from '@actions/github/lib/utils'
 import {components} from '@octokit/openapi-types'
 import {getOctokit} from '@actions/github'
 import {info} from '@actions/core'
@@ -14,12 +15,14 @@ export const getRepoString = (): undefined | string => {
   return process.env['GITHUB_REPOSITORY']
 }
 
+export const createOctokit = (token: string): InstanceType<typeof GitHub> =>
+  getOctokit(token)
+
 export const fetchPulls = async (
-  token: string,
+  octokit: InstanceType<typeof GitHub>,
   owner: string,
   repo: string
 ): Promise<PullsListResponseData> => {
-  const octokit = getOctokit(token)
   const {data: allPulls} = await octokit.rest.pulls.list({owner, repo})
   return allPulls
 }
@@ -46,7 +49,7 @@ const pullURL = (owner: string, repo: string, number: number): string =>
   `https://github.com/${owner}/${repo}/pull/${number}`
 
 export const createComments = async (
-  token: string,
+  octokit: InstanceType<typeof GitHub>,
   owner: string,
   repo: string,
   pulls: Pull[],
@@ -56,7 +59,6 @@ export const createComments = async (
 ): Promise<void> => {
   info('update comment')
 
-  const octokit = getOctokit(token)
   for (const pull of pulls) {
     const comments = await octokit.rest.issues.listComments({
       owner,
@@ -96,7 +98,7 @@ export const createComments = async (
 }
 
 export const updateLabels = async (
-  token: string,
+  octokit: InstanceType<typeof GitHub>,
   owner: string,
   repo: string,
   pulls: Pull[],
@@ -106,7 +108,6 @@ export const updateLabels = async (
 ): Promise<void> => {
   info('update label')
 
-  const octokit = getOctokit(token)
   for (const pull of pulls) {
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
     const hasSuccessfulLabel = pull.labels.some(
