@@ -71,27 +71,25 @@ export const createComments = async (
         )
       : appendMagicString(customFailureComment || commentFail())
 
-    const previousComments = comments.data.filter(
-      comment => comment.body && comment.body.includes(magicString)
+    const previousComment = comments.data.find(comment =>
+      comment.body?.includes(magicString)
     )
 
-    if (previousComments.length !== 0) {
-      const lastComment = previousComments[0]
-
-      await octokit.rest.issues.updateComment({
+    if (!previousComment) {
+      await octokit.rest.issues.createComment({
         owner,
         repo,
-        comment_id: lastComment.id,
+        issue_number: pull.number,
         body: message
       })
 
       continue
     }
 
-    await octokit.rest.issues.createComment({
+    await octokit.rest.issues.updateComment({
       owner,
       repo,
-      issue_number: pull.number,
+      comment_id: previousComment.id,
       body: message
     })
   }
