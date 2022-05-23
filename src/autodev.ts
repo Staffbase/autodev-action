@@ -1,6 +1,7 @@
 import {
   Pull,
   createComments,
+  createOctokit,
   fetchPulls,
   getRepoString,
   updateLabels
@@ -34,10 +35,12 @@ const autoDev = async (): Promise<void> => {
   const customSuccessLabel = getInput('success_label') || 'successful'
   const customFailureLabel = getInput('failure_label') || 'failed'
 
+  const octokit = createOctokit(token)
+
   const updateComment = async (successfulPulls: Pull[]): Promise<void> =>
     comments
       ? createComments(
-          token,
+          octokit,
           owner,
           repo,
           pulls,
@@ -50,7 +53,7 @@ const autoDev = async (): Promise<void> => {
   const updateLabel = async (successfulPulls: Pull[]): Promise<void> =>
     labels
       ? updateLabels(
-          token,
+          octokit,
           owner,
           repo,
           pulls,
@@ -60,7 +63,7 @@ const autoDev = async (): Promise<void> => {
         )
       : Promise.resolve()
 
-  const allPulls = await fetchPulls(token, owner, repo)
+  const allPulls = await fetchPulls(octokit, owner, repo)
   const pulls = allPulls
     .filter(pull => pull.labels.some(l => l.name === label))
     .map(pull => ({
