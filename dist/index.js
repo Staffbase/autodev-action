@@ -31,7 +31,7 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     const email = (0, core_1.getInput)('email') || 'staffbot@staffbase.com';
     const label = (0, core_1.getInput)('label') || 'dev';
     const branch = (0, core_1.getInput)('branch') || 'dev';
-    const base = (0, core_1.getInput)('base') || 'master';
+    const base = (0, core_1.getInput)('base') || 'main';
     const optimistic = (0, core_1.getInput)('optimistic') === 'true';
     const comments = (0, core_1.getInput)('comments') === 'true';
     const customSuccessComment = (0, core_1.getInput)('success_comment') || '';
