@@ -49,8 +49,8 @@ export const createComments = async (
   repo: string,
   pulls: Pull[],
   successfulPulls: Pull[],
-  customSuccessComment?: string,
-  customFailureComment?: string
+  customSuccessComment: string,
+  customFailureComment: string
 ): Promise<void> => {
   const octokit = getOctokit(token)
   for (const pull of pulls) {
@@ -71,22 +71,18 @@ export const createComments = async (
       })
     }
 
-    if (successfulPulls.some(sp => sp.branch === pull.branch)) {
-      await octokit.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: pull.number,
-        body: appendMagicString(
-          customSuccessComment ?? commentSuccess(owner, repo, successfulPulls)
+    const successful = successfulPulls.some(sp => sp.branch === pull.branch)
+    const message = successful
+      ? appendMagicString(
+          customSuccessComment || commentSuccess(owner, repo, successfulPulls)
         )
-      })
-    } else {
-      await octokit.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: pull.number,
-        body: appendMagicString(customFailureComment ?? commentFail())
-      })
-    }
+      : appendMagicString(customFailureComment || commentFail())
+
+    await octokit.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: pull.number,
+      body: message
+    })
   }
 }
