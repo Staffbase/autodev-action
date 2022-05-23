@@ -1,11 +1,13 @@
 import {components} from '@octokit/openapi-types'
 import {getOctokit} from '@actions/github'
+import {info} from '@actions/core'
 
 type PullsListResponseData = components['schemas']['pull-request-simple'][]
 
 export interface Pull {
   number: number
   branch: string
+  labels: (string | undefined)[]
 }
 
 export const getRepoString = (): undefined | string => {
@@ -52,6 +54,8 @@ export const createComments = async (
   customSuccessComment: string,
   customFailureComment: string
 ): Promise<void> => {
+  info('update comment')
+
   const octokit = getOctokit(token)
   for (const pull of pulls) {
     const comments = await octokit.rest.issues.listComments({
@@ -83,6 +87,52 @@ export const createComments = async (
       repo,
       issue_number: pull.number,
       body: message
+    })
+  }
+}
+
+export const updateLabels = async (
+  token: string,
+  owner: string,
+  repo: string,
+  pulls: Pull[],
+  successfulPulls: Pull[],
+  customSuccessLabel: string,
+  customFailureLabel: string
+): Promise<void> => {
+  info('update label')
+
+  const octokit = getOctokit(token)
+  for (const pull of pulls) {
+    const successful = successfulPulls.some(sp => sp.branch === pull.branch)
+    const hasSuccessfulLabel = pull.labels.some(
+      label => label === customSuccessLabel
+    )
+    const hasFailureLabel = pull.labels.some(
+      label => label === customFailureLabel
+    )
+
+    if (
+      (successful && hasSuccessfulLabel) ||
+      (!successful && hasFailureLabel)
+    ) {
+      continue
+    }
+
+    if (hasSuccessfulLabel || hasFailureLabel) {
+      await octokit.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: pull.number,
+        name: successful ? customFailureLabel : customSuccessLabel
+      })
+    }
+
+    await octokit.rest.issues.addLabels({
+      owner,
+      repo,
+      issue_number: pull.number,
+      labels: [successful ? customSuccessLabel : customFailureLabel]
     })
   }
 }

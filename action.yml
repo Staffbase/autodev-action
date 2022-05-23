@@ -26,6 +26,18 @@ inputs:
     required: false
     description: 'Comment string that will be shown in the Pull request on failure.'
     default: ''
+  labels:
+    required: false
+    default: 'false'
+    description: 'If true, the action uses labels on each PR to inform about the status of the dev branch.'
+  success_label:
+    required: false
+    description: 'Label string that will be add on the Pull request on success.'
+    default: 'successful'
+  failure_label:
+    required: false
+    description: 'Label string that will be add on the Pull request on failure.'
+    default: 'failed'
   base:
     required: false
     default: 'master'
