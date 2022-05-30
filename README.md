@@ -90,6 +90,10 @@ Add a status label if the merge was successful or failed.
     failure_label: 'failed'
 ```
 
+# Limitations
+
+- currently only the first 100 pull requests are analyzed
+
 # Development
 
 Very nice that you want to work on the action. To create a working implementation, you can use the following command to perform all the necessary actions.
