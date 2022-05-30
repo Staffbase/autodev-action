@@ -196,7 +196,11 @@ exports.getRepoString = getRepoString;
 const createOctokit = (token) => (0, github_1.getOctokit)(token);
 exports.createOctokit = createOctokit;
 const fetchPulls = (octokit, owner, repo) => __awaiter(void 0, void 0, void 0, function* () {
-    const { data: allPulls } = yield octokit.rest.pulls.list({ owner, repo });
+    const { data: allPulls } = yield octokit.rest.pulls.list({
+        owner,
+        repo,
+        per_page: 100
+    });
     return allPulls;
 });
 exports.fetchPulls = fetchPulls;

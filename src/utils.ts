@@ -24,7 +24,7 @@ export const fetchPulls = async (
   repo: string
 ): Promise<PullsListResponseData> => {
   const {data: allPulls} = await octokit.rest.pulls.list({
-    owner, 
+    owner,
     repo,
     per_page: 100
   })
