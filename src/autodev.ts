@@ -72,9 +72,19 @@ const autoDev = async (): Promise<void> => {
       labels: pull.labels.map(l => l.name)
     }))
 
+  let commitDate = ''
+
   await exec('git fetch')
   await exec(`git config --global user.email "${email}"`)
   await exec(`git config --global user.name "${user}"`)
+  await exec(`git show -s --format='%ci' origin/${base}`, undefined, {
+    listeners: {
+      stdout: (data: Buffer) => {
+        commitDate += data.toString()
+      }
+    }
+  })
+
   await exec(`git checkout ${branch}`)
   await exec(`git reset --hard origin/${base}`)
 
@@ -91,8 +101,8 @@ const autoDev = async (): Promise<void> => {
   }
 
   const message = optimistic
-    ? await merge(base, pulls, updateComment, updateLabel)
-    : await mergeAll(pulls, updateComment, updateLabel)
+    ? await merge(base, pulls, updateComment, updateLabel, commitDate)
+    : await mergeAll(pulls, updateComment, updateLabel, commitDate)
 
   // only push to defined branch if there are changes
   if (await hasDiff('HEAD', `origin/${branch}`)) {
@@ -122,12 +132,18 @@ const merge = async (
   base: string,
   pulls: Pull[],
   comment: Comment,
-  label: Label
+  label: Label,
+  commitDate: string
 ): Promise<string> => {
   const success: Pull[] = []
   for (const pull of pulls) {
     try {
-      await exec(`git merge origin/${pull.branch}`)
+      await exec(`git merge origin/${pull.branch}`, undefined, {
+        env: {
+          GIT_COMMITTER_DATE: commitDate,
+          GIT_AUTHOR_DATE: commitDate
+        }
+      })
       success.push(pull)
     } catch (error) {
       info(
@@ -151,17 +167,22 @@ const merge = async (
 const mergeAll = async (
   pulls: Pull[],
   comment: Comment,
-  label: Label
+  label: Label,
+  commitDate: string
 ): Promise<string> => {
   const message = `AutoDev Merge\n\nThe following branches have been merged:\n${pulls
     .map(p => `- ${p.branch}`)
     .join('\n')}`
-  await exec(`git merge -s octopus`, [
-    ...pulls.map(p => `origin/${p.branch}`),
-    '--no-ff',
-    '-m',
-    message
-  ])
+  await exec(
+    `git merge -s octopus`,
+    [...pulls.map(p => `origin/${p.branch}`), '--no-ff', '-m', message],
+    {
+      env: {
+        GIT_COMMITTER_DATE: commitDate,
+        GIT_AUTHOR_DATE: commitDate
+      }
+    }
+  )
   await comment(pulls)
   await label(pulls)
   return message
