@@ -113,16 +113,7 @@ const autoDev = async (): Promise<void> => {
 }
 
 const hasDiff = async (a: string, b: string): Promise<boolean> => {
-  let ret = false
-  await exec(`git diff ${a}..${b}`, undefined, {
-    listeners: {
-      stdout: () => {
-        ret = true
-      }
-    }
-  })
-
-  return ret
+  return (await exec(`git diff --quiet ${a}..${b}`)) !== 0
 }
 
 type Comment = (success: Pull[]) => Promise<void>
