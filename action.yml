@@ -22,10 +22,6 @@ inputs:
     required: false
     default: 'dev'
     description: 'The branch the action will merge the Pull Requests to.'
-  optimistic:
-    required: false
-    default: 'true'
-    description: 'Ignores conflicts between branches and merges the remaining branches.'
   comments:
     required: false
     default: 'false'

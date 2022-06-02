@@ -25,8 +25,6 @@ const autoDev = async (): Promise<void> => {
   const branch = getInput('branch') || 'dev'
   const base = getInput('base') || 'main'
 
-  const optimistic = getInput('optimistic') === 'true'
-
   const comments = getInput('comments') === 'true'
   const customSuccessComment = getInput('success_comment') || ''
   const customFailureComment = getInput('failure_comment') || ''
@@ -100,10 +98,13 @@ const autoDev = async (): Promise<void> => {
     return
   }
 
-  const message = optimistic
-    ? await merge(base, pulls, updateComment, updateLabel, commitDate)
-    : await mergeAll(pulls, updateComment, updateLabel, commitDate)
-
+  const message = await merge(
+    base,
+    pulls,
+    updateComment,
+    updateLabel,
+    commitDate
+  )
   // only push to defined branch if there are changes
   if (await hasDiff('HEAD', `origin/${branch}`)) {
     await exec('git push -f')
@@ -152,30 +153,6 @@ const merge = async (
   await exec('git commit -m', [message])
   await comment(success)
   await label(success)
-  return message
-}
-
-const mergeAll = async (
-  pulls: Pull[],
-  comment: Comment,
-  label: Label,
-  commitDate: string
-): Promise<string> => {
-  const message = `AutoDev Merge\n\nThe following branches have been merged:\n${pulls
-    .map(p => `- ${p.branch}`)
-    .join('\n')}`
-  await exec(
-    `git merge -s octopus`,
-    [...pulls.map(p => `origin/${p.branch}`), '--no-ff', '-m', message],
-    {
-      env: {
-        GIT_COMMITTER_DATE: commitDate,
-        GIT_AUTHOR_DATE: commitDate
-      }
-    }
-  )
-  await comment(pulls)
-  await label(pulls)
   return message
 }
 
