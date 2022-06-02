@@ -7,7 +7,29 @@ import {
   updateLabels
 } from './utils'
 import {getInput, info, setFailed} from '@actions/core'
+import {ExecOptions} from '@actions/exec/lib/interfaces'
 import {exec} from '@actions/exec'
+
+const execAndSlurp = async (
+  commandLine: string,
+  args?: string[],
+  options?: ExecOptions
+): Promise<string> => {
+  let ret = ''
+
+  await exec(commandLine, args, {
+    ...options,
+    listeners: {
+      ...options?.listeners,
+
+      stdout: (data: Buffer) => {
+        ret += data.toString()
+      }
+    }
+  })
+
+  return ret
+}
 
 const autoDev = async (): Promise<void> => {
   const repoString = getRepoString()
@@ -70,51 +92,44 @@ const autoDev = async (): Promise<void> => {
       labels: pull.labels.map(l => l.name)
     }))
 
-  let commitDate = ''
-
   await exec('git fetch')
   await exec(`git config --global user.email "${email}"`)
   await exec(`git config --global user.name "${user}"`)
-  await exec(`git show -s --format='%ci' origin/${base}`, undefined, {
-    listeners: {
-      stdout: (data: Buffer) => {
-        commitDate += data.toString()
-      }
-    }
-  })
+  const commitDate = await execAndSlurp(
+    `git show -s --format='%ci' origin/${base}`
+  )
 
-  await exec(`git checkout ${branch}`)
-  await exec(`git reset --hard origin/${base}`)
+  await exec(`git checkout ${base}`)
 
   if (pulls.length === 0) {
-    if (await hasDiff('HEAD', `origin/${branch}`)) {
-      await exec('git push -f')
-      info(
-        `🎉 No Pull Requests found. Pushed changes, because "${branch}" and "${base}" diverged.`
-      )
-    } else {
-      info('🎉 No Pull Requests found. Nothing to merge.')
-    }
-    return
+    info('🎉 No Pull Requests found. Nothing to merge.')
+  } else {
+    const message = await merge(
+      base,
+      pulls,
+      updateComment,
+      updateLabel,
+      commitDate
+    )
+    info(message)
   }
+  await exec(`git checkout -B ${branch}`)
 
-  const message = await merge(
-    base,
-    pulls,
-    updateComment,
-    updateLabel,
-    commitDate
-  )
   // only push to defined branch if there are changes
+  await exec('git fetch')
   if (await hasDiff('HEAD', `origin/${branch}`)) {
-    await exec('git push -f')
+    // ignore any errors
+    await exec('git push -f', undefined, {
+      ignoreReturnCode: true
+    })
   }
-
-  info(message)
 }
 
 const hasDiff = async (a: string, b: string): Promise<boolean> => {
-  return (await exec(`git diff --quiet ${a}..${b}`)) !== 0
+  return (
+    (await execAndSlurp(`git rev-parse ${a}`)) !==
+    (await execAndSlurp(`git rev-parse ${b}`))
+  )
 }
 
 type Comment = (success: Pull[]) => Promise<void>
@@ -130,12 +145,7 @@ const merge = async (
   const success: Pull[] = []
   for (const pull of pulls) {
     try {
-      await exec(`git merge origin/${pull.branch}`, undefined, {
-        env: {
-          GIT_COMMITTER_DATE: commitDate,
-          GIT_AUTHOR_DATE: commitDate
-        }
-      })
+      await exec(`git merge origin/${pull.branch}`)
       success.push(pull)
     } catch (error) {
       info(
@@ -147,10 +157,25 @@ const merge = async (
   await exec(`git reset origin/${base}`)
   await exec('git add -A')
 
+  const overrideDate = {
+    env: {
+      GIT_COMMITTER_DATE: commitDate,
+      GIT_AUTHOR_DATE: commitDate
+    }
+  }
   const message = `AutoDev Merge\n\nThe following branches have been merged:\n${success
     .map(p => `- ${p.branch}`)
     .join('\n')}`
-  await exec('git commit -m', [message])
+
+  await exec('git commit -m', [message], overrideDate)
+  // replace with graft commit so we can preserve commit parents
+  await exec(
+    `git replace --graft HEAD ${base}`,
+    success.map(p => `origin/${p.branch}`),
+    overrideDate
+  )
+  const rev = await execAndSlurp('git rev-parse HEAD')
+  await exec(`git checkout replace/${rev}`)
   await comment(success)
   await label(success)
   return message
