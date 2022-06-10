@@ -93,8 +93,8 @@ const autoDev = async (): Promise<void> => {
     }))
 
   await exec('git fetch')
-  await exec(`git config --global user.email "${email}"`)
-  await exec(`git config --global user.name "${user}"`)
+  await exec(`git config user.email "${email}"`)
+  await exec(`git config user.name "${user}"`)
   const commitDate = await execAndSlurp(
     `git show -s --format='%ci' origin/${base}`
   )
