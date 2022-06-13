@@ -10,6 +10,9 @@ import {getInput, info, setFailed} from '@actions/core'
 import {ExecOptions} from '@actions/exec/lib/interfaces'
 import {exec} from '@actions/exec'
 
+/**
+ * this function runs a command via exec, and returns the whole output as string.
+ */
 const execAndSlurp = async (
   commandLine: string,
   args?: string[],
