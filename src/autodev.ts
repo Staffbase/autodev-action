@@ -122,7 +122,7 @@ const autoDev = async (): Promise<void> => {
   await exec('git fetch')
   if (await hasDiff('HEAD', `origin/${branch}`)) {
     // ignore any errors
-    await exec('git push -f', undefined, {
+    await exec(`git push -f -u origin ${branch}`, undefined, {
       ignoreReturnCode: true
     })
   }
