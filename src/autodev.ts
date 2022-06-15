@@ -173,7 +173,7 @@ const merge = async (
   await exec('git commit -m', [message], overrideDate)
   // replace with graft commit so we can preserve commit parents
   await exec(
-    `git replace --graft HEAD ${base}`,
+    `git replace --graft HEAD origin/${base}`,
     success.map(p => `origin/${p.branch}`),
     overrideDate
   )
