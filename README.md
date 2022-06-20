@@ -44,7 +44,6 @@ You can find all input options which are available for this action.
 | base            | This is the base branch. The merge history originates from this branch.                                                                                                                       | main                   |
 | branch          | The branch the action will merge the pull requests to.                                                                                                                                        | dev                    |
 | label           | The label where the action will be triggered.                                                                                                                                                 | dev                    |
-| optimistic      | Whether the action should perform an "optimistic" merge of the given Pull requests. If this is set to false, the dev branch is only built if there are zero merge conflicts between branches. | false                  |
 | comments        | The GitHub action creates a new comment inside every pull request.                                                                                                                            | false                  |
 | success_comment | Comment string that will be shown in the pull request on success. Only necessary if `comments` is enabled.                                                                                    | ''                     |
 | failure_comment | Comment string that will be shown in the pull request on failure. Only necessary if `comments` is enabled.                                                                                    | ''                     |
@@ -63,7 +62,6 @@ Always create the dev branch.
   uses: Staffbase/autodev-action@v1.4.0
   with:
     token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-    optimistic: true
 ```
 
 Add a status comment if the merge was successful or failed.
