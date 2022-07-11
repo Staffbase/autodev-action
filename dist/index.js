@@ -67,7 +67,6 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
         branch: pull.head.ref,
         labels: pull.labels.map(l => l.name)
     }));
-    (0, core_1.debug)(`analyzing pull requests: ${pulls}`);
     yield (0, exec_1.exec)('git fetch');
     yield (0, exec_1.exec)(`git config user.email "${email}"`);
     yield (0, exec_1.exec)(`git config user.name "${user}"`);
@@ -77,6 +76,7 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
         (0, core_1.info)('🎉 No Pull Requests found. Nothing to merge.');
     }
     else {
+        (0, core_1.debug)(`merging pull requests: ${pulls}`);
         const message = yield merge(base, pulls, updateComment, updateLabel, commitDate);
         (0, core_1.info)(message);
     }
