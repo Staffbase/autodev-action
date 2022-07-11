@@ -76,7 +76,7 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
         (0, core_1.info)('🎉 No Pull Requests found. Nothing to merge.');
     }
     else {
-        (0, core_1.debug)(`merging pull requests: ${pulls}`);
+        (0, core_1.debug)(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`);
         const message = yield merge(base, pulls, updateComment, updateLabel, commitDate);
         (0, core_1.info)(message);
     }

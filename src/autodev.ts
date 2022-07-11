@@ -107,7 +107,7 @@ const autoDev = async (): Promise<void> => {
   if (pulls.length === 0) {
     info('🎉 No Pull Requests found. Nothing to merge.')
   } else {
-    debug(`merging pull requests: ${pulls}`)
+    debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`)
     const message = await merge(
       base,
       pulls,
