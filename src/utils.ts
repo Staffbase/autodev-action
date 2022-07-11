@@ -93,13 +93,15 @@ export const createComments = async (
       continue
     }
 
-    debug(`update comment for pull request ${pull.number}`)
-    await octokit.rest.issues.updateComment({
-      owner,
-      repo,
-      comment_id: previousComment.id,
-      body: message
-    })
+    if (previousComment.body !== message) {
+      debug(`update comment for pull request ${pull.number}`)
+      await octokit.rest.issues.updateComment({
+        owner,
+        repo,
+        comment_id: previousComment.id,
+        body: message
+      })
+    }
   }
 }
 

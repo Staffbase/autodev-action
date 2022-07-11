@@ -236,13 +236,15 @@ const createComments = (octokit, owner, repo, pulls, successfulPulls, customSucc
             });
             continue;
         }
-        (0, core_1.debug)(`update comment for pull request ${pull.number}`);
-        yield octokit.rest.issues.updateComment({
-            owner,
-            repo,
-            comment_id: previousComment.id,
-            body: message
-        });
+        if (previousComment.body !== message) {
+            (0, core_1.debug)(`update comment for pull request ${pull.number}`);
+            yield octokit.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: previousComment.id,
+                body: message
+            });
+        }
     }
 });
 exports.createComments = createComments;
