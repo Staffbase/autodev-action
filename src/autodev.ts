@@ -6,7 +6,7 @@ import {
   getRepoString,
   updateLabels
 } from './utils'
-import {getInput, info, setFailed} from '@actions/core'
+import {debug, getInput, info, setFailed} from '@actions/core'
 import {ExecOptions} from '@actions/exec/lib/interfaces'
 import {exec} from '@actions/exec'
 
@@ -107,6 +107,7 @@ const autoDev = async (): Promise<void> => {
   if (pulls.length === 0) {
     info('🎉 No Pull Requests found. Nothing to merge.')
   } else {
+    debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`)
     const message = await merge(
       base,
       pulls,
