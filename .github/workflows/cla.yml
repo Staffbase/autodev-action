@@ -7,7 +7,7 @@ on:
   issue_comment:
     types: [created]
   pull_request:
-    types: [opened,closed,synchronize]
+    types: [opened, closed, synchronize]
 
 jobs:
   CLAssistant:
@@ -20,8 +20,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PERSONAL_ACCESS_TOKEN: ${{ secrets.OSS_CONTRIBUTOR_LICENSE_AGREEMENT }}
         with:
-          path-to-signatures: 'signatures/version1/cla.json'
-          path-to-document: 'https://github.com/Staffbase/autodev-action/blob/main/CLA.md'
+          path-to-signatures: "signatures/version1/cla.json"
+          path-to-document: "https://github.com/Staffbase/autodev-action/blob/main/CLA.md"
           # branch should not be protected
-          branch: 'signatures'
-          allowlist: 0x46616c6b,axdotl,flaxel,kaitimmer,ricoberger,staffbase-robert,bot*
+          branch: "signatures"
+          allowlist: 0x46616c6b,axdotl,flaxel,kaitimmer,ricoberger,staffbase-robert,*bot*
