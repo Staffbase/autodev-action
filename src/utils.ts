@@ -3,7 +3,7 @@ import {GitHub} from '@actions/github/lib/utils'
 import {components} from '@octokit/openapi-types'
 import {getOctokit} from '@actions/github'
 
-type PullsListResponseData = components['schemas']['pull-request-simple'][]
+export type PullsListResponseData = components['schemas']['pull-request-simple'][]
 
 export interface Pull {
   number: number

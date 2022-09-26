@@ -2,6 +2,7 @@ import autoDev from '../src/autodev'
 import * as exec from '@actions/exec'
 import * as core from '@actions/core'
 import * as utils from '../src/utils'
+import {PullsListResponseData} from '../src/utils'
 
 describe('autodev', () => {
   let info: jest.SpyInstance
@@ -17,26 +18,23 @@ describe('autodev', () => {
     jest.spyOn(utils, 'fetchPulls').mockResolvedValue([
       {
         labels: [{name: 'dev'}],
-        // @ts-ignore
         head: {
           ref: 'feature-1'
         }
       },
       {
         labels: [{name: 'not-dev'}],
-        // @ts-ignore
         head: {
           ref: 'feature-2'
         }
       },
       {
         labels: [{name: 'dev'}],
-        // @ts-ignore
         head: {
           ref: 'feature-3'
         }
       }
-    ])
+    ] as PullsListResponseData)
 
     info = jest.spyOn(core, 'info')
     jest.spyOn(exec, 'exec').mockResolvedValue(0)
