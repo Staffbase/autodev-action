@@ -12,7 +12,7 @@ on:
     branches-ignore:
       - dev
   pull_request:
-    types: [labeled, unlabeled]
+    types: [labeled, unlabeled, closed]
 
 jobs:
   autodev:
