@@ -30,7 +30,7 @@
   "devDependencies": {
     "@actions/exec": "^1.1.0",
     "@actions/github": "^5.1.0",
-    "@babel/parser": "^7.19.0",
+    "@babel/parser": "^7.20.2",
     "@octokit/openapi-types": "^14.0.0",
     "@types/jest": "^27.0.2",
     "@types/node": "^18.8.1",
