@@ -3,7 +3,8 @@ import {GitHub} from '@actions/github/lib/utils'
 import {components} from '@octokit/openapi-types'
 import {getOctokit} from '@actions/github'
 
-export type PullsListResponseData = components['schemas']['pull-request-simple'][]
+export type PullsListResponseData =
+  components['schemas']['pull-request-simple'][]
 
 export interface Pull {
   number: number
@@ -26,7 +27,8 @@ export const fetchPulls = async (
   const {data: allPulls} = await octokit.rest.pulls.list({
     owner,
     repo,
-    per_page: 100
+    per_page: 100,
+    direction: 'asc'
   })
   return allPulls
 }
