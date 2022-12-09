@@ -28,6 +28,8 @@ export const fetchPulls = async (
     owner,
     repo,
     per_page: 100,
+    // prioritize old PRs
+    sort: 'created',
     direction: 'asc'
   })
   return allPulls
