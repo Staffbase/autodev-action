@@ -17,21 +17,27 @@ describe('autodev', () => {
       .mockReturnValue('@staffbase/auto-dev-action')
     jest.spyOn(utils, 'fetchPulls').mockResolvedValue([
       {
+        number: 1,
         labels: [{name: 'dev'}],
         head: {
-          ref: 'feature-1'
+          ref: 'feature-1',
+          sha: '38767ad258cbc536826996ef881eaa797851fc0e'
         }
       },
       {
+        number: 2,
         labels: [{name: 'not-dev'}],
         head: {
-          ref: 'feature-2'
+          ref: 'feature-2',
+          sha: '48767ad258cbc536826996ef881eaa797851fc0f'
         }
       },
       {
+        number: 3,
         labels: [{name: 'dev'}],
         head: {
-          ref: 'feature-3'
+          ref: 'feature-3',
+          sha: '58767ad258cbc536826996ef881eaa797851fc10'
         }
       }
     ] as PullsListResponseData)
@@ -55,8 +61,11 @@ describe('autodev', () => {
     expect(info).toHaveBeenCalledWith(`AutoDev Merge
 
 The following branches have been merged:
-- feature-1
-- feature-3`)
+- #1 feature-1 (38767ad)
+- #3 feature-3 (58767ad)
+
+The following branches failed to merge:
+`)
   })
 
   it('should add successful comments', async () => {
