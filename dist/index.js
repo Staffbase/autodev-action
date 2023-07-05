@@ -63,6 +63,7 @@ const autoDev = () => __awaiter(void 0, void 0, void 0, function* () {
     const pulls = allPulls
         .filter(pull => pull.labels.some(l => l.name === label))
         .map(pull => ({
+        sha: pull.head.sha,
         number: pull.number,
         branch: pull.head.ref,
         labels: pull.labels.map(l => l.name)
@@ -96,6 +97,7 @@ const hasDiff = (a, b) => __awaiter(void 0, void 0, void 0, function* () {
 });
 const merge = (base, pulls, comment, label, commitDate) => __awaiter(void 0, void 0, void 0, function* () {
     const success = [];
+    const failed = [];
     for (const pull of pulls) {
         try {
             yield (0, exec_1.exec)(`git merge origin/${pull.branch}`);
@@ -104,6 +106,7 @@ const merge = (base, pulls, comment, label, commitDate) => __awaiter(void 0, voi
         catch (error) {
             (0, core_1.info)(`encountered merge conflicts with branch "${pull.branch}", error: ${error}`);
             yield (0, exec_1.exec)(`git merge --abort`);
+            failed.push(pull);
         }
     }
     yield (0, exec_1.exec)(`git reset origin/${base}`);
@@ -114,9 +117,12 @@ const merge = (base, pulls, comment, label, commitDate) => __awaiter(void 0, voi
             GIT_AUTHOR_DATE: commitDate
         }
     };
-    const message = `AutoDev Merge\n\nThe following branches have been merged:\n${success
-        .map(p => `- ${p.branch}`)
-        .join('\n')}`;
+    const toBulletPoint = (pull) => `- #${pull.number} ${pull.branch} (${pull.sha.substring(0, 7)})`;
+    const successList = success.map(toBulletPoint).join('\n');
+    const failList = failed.map(toBulletPoint).join('\n');
+    const message = `AutoDev Merge\n\n` +
+        `The following branches have been merged:\n${successList}\n\n` +
+        `The following branches failed to merge:\n${failList}`;
     yield (0, exec_1.exec)('git commit -m', [message], overrideDate);
     // replace with graft commit so we can preserve commit parents
     yield (0, exec_1.exec)(`git replace --graft HEAD origin/${base}`, success.map(p => `origin/${p.branch}`), overrideDate);

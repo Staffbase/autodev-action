@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Autodev
-        uses: Staffbase/autodev-action@v1.7.0
+        uses: Staffbase/autodev-action@v1.8.0
         with:
           # The token used to fetch the pull requests from the GitHub API
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
@@ -59,7 +59,7 @@ Always create the dev branch.
 
 ```yaml
 - name: Autodev
-  uses: Staffbase/autodev-action@v1.7.0
+  uses: Staffbase/autodev-action@v1.8.0
   with:
     token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 ```
@@ -68,7 +68,7 @@ Add a status comment if the merge was successful or failed.
 
 ```yaml
 - name: Autodev
-  uses: Staffbase/autodev-action@v1.7.0
+  uses: Staffbase/autodev-action@v1.8.0
   with:
     token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     comments: true
@@ -80,7 +80,7 @@ Add a status label if the merge was successful or failed.
 
 ```yaml
 - name: Autodev
-  uses: Staffbase/autodev-action@v1.7.0
+  uses: Staffbase/autodev-action@v1.8.0
   with:
     token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     labels: true
