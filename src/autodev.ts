@@ -90,6 +90,7 @@ const autoDev = async (): Promise<void> => {
   const pulls = allPulls
     .filter(pull => pull.labels.some(l => l.name === label))
     .map(pull => ({
+      sha: pull.head.sha,
       number: pull.number,
       branch: pull.head.ref,
       labels: pull.labels.map(l => l.name)
@@ -147,6 +148,8 @@ const merge = async (
   commitDate: string
 ): Promise<string> => {
   const success: Pull[] = []
+  const failed: Pull[] = []
+
   for (const pull of pulls) {
     try {
       await exec(`git merge origin/${pull.branch}`)
@@ -156,6 +159,7 @@ const merge = async (
         `encountered merge conflicts with branch "${pull.branch}", error: ${error}`
       )
       await exec(`git merge --abort`)
+      failed.push(pull)
     }
   }
   await exec(`git reset origin/${base}`)
@@ -167,9 +171,18 @@ const merge = async (
       GIT_AUTHOR_DATE: commitDate
     }
   }
-  const message = `AutoDev Merge\n\nThe following branches have been merged:\n${success
-    .map(p => `- ${p.branch}`)
-    .join('\n')}`
+  const successList = success
+    .map(p => `- #${p.number} ${p.branch} (${p.sha.substring(0, 7)})`)
+    .join('\n')
+
+  const failList = failed
+    .map(p => `- #${p.number} ${p.branch} (${p.sha.substring(0, 7)})`)
+    .join('\n')
+
+  const message =
+    `AutoDev Merge\n\n` +
+    `The following branches have been merged:\n${successList}\n\n` +
+    `The following branches failed to merge:\n${failList}`
 
   await exec('git commit -m', [message], overrideDate)
   // replace with graft commit so we can preserve commit parents
