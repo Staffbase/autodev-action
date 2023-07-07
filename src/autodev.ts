@@ -173,7 +173,7 @@ const merge = async (
   }
 
   const toBulletPoint = (pull: Pull): string =>
-    `- #${pull.number} ${pull.branch} (${pull.sha.substring(0, 7)})`
+    `- PR ${pull.number} ${pull.branch} (${pull.sha.substring(0, 7)})`
 
   const successList = success.map(toBulletPoint).join('\n')
   const failList = failed.map(toBulletPoint).join('\n')
