@@ -61,8 +61,8 @@ describe('autodev', () => {
     expect(info).toHaveBeenCalledWith(`AutoDev Merge
 
 The following branches have been merged:
-- #1 feature-1 (38767ad)
-- #3 feature-3 (58767ad)
+- PR 1 feature-1 (38767ad)
+- PR 3 feature-3 (58767ad)
 
 The following branches failed to merge:
 `)
