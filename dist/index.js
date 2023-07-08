@@ -117,7 +117,7 @@ const merge = (base, pulls, comment, label, commitDate) => __awaiter(void 0, voi
             GIT_AUTHOR_DATE: commitDate
         }
     };
-    const toBulletPoint = (pull) => `- #${pull.number} ${pull.branch} (${pull.sha.substring(0, 7)})`;
+    const toBulletPoint = (pull) => `- PR ${pull.number} ${pull.branch} (${pull.sha.substring(0, 7)})`;
     const successList = success.map(toBulletPoint).join('\n');
     const failList = failed.map(toBulletPoint).join('\n');
     const message = `AutoDev Merge\n\n` +
