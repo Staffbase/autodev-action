@@ -52,7 +52,7 @@ describe('autodev', () => {
     jest
       .spyOn(core, 'getInput')
       .mockImplementation(
-        input => ({token: 'token', base: 'main'}[input] || '')
+        input => ({token: 'token', base: 'main'})[input] || ''
       )
 
     await autoDev()
@@ -72,7 +72,7 @@ The following branches failed to merge:
     jest
       .spyOn(core, 'getInput')
       .mockImplementation(
-        input => ({token: 'token', base: 'main', comments: 'true'}[input] || '')
+        input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
       )
 
     await autoDev()
@@ -84,7 +84,7 @@ The following branches failed to merge:
     jest
       .spyOn(core, 'getInput')
       .mockImplementation(
-        input => ({token: 'token', base: 'main', labels: 'true'}[input] || '')
+        input => ({token: 'token', base: 'main', labels: 'true'})[input] || ''
       )
 
     await autoDev()
