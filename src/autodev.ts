@@ -162,8 +162,6 @@ const merge = async (
       failed.push(pull)
     }
   }
-  await exec(`git reset origin/${base}`)
-  await exec('git add -A')
 
   const overrideDate = {
     env: {
@@ -183,6 +181,13 @@ const merge = async (
     `The following branches have been merged:\n${successList}\n\n` +
     `The following branches failed to merge:\n${failList}`
 
+  if (success.length === 0) {
+    return message
+  }
+
+  await exec(`git reset origin/${base}`)
+  await exec('git add -A')
+
   await exec('git commit -m', [message], overrideDate)
   // replace with graft commit so we can preserve commit parents
   await exec(
@@ -192,8 +197,10 @@ const merge = async (
   )
   const rev = await execAndSlurp('git rev-parse HEAD')
   await exec(`git checkout replace/${rev}`)
+
   await comment(success)
   await label(success)
+
   return message
 }
 

@@ -109,8 +109,6 @@ const merge = (base, pulls, comment, label, commitDate) => __awaiter(void 0, voi
             failed.push(pull);
         }
     }
-    yield (0, exec_1.exec)(`git reset origin/${base}`);
-    yield (0, exec_1.exec)('git add -A');
     const overrideDate = {
         env: {
             GIT_COMMITTER_DATE: commitDate,
@@ -123,6 +121,11 @@ const merge = (base, pulls, comment, label, commitDate) => __awaiter(void 0, voi
     const message = `AutoDev Merge\n\n` +
         `The following branches have been merged:\n${successList}\n\n` +
         `The following branches failed to merge:\n${failList}`;
+    if (success.length === 0) {
+        return message;
+    }
+    yield (0, exec_1.exec)(`git reset origin/${base}`);
+    yield (0, exec_1.exec)('git add -A');
     yield (0, exec_1.exec)('git commit -m', [message], overrideDate);
     // replace with graft commit so we can preserve commit parents
     yield (0, exec_1.exec)(`git replace --graft HEAD origin/${base}`, success.map(p => `origin/${p.branch}`), overrideDate);
