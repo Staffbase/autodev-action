@@ -37,7 +37,7 @@ jobs:
       - name: Execute Action
         uses: ./
         with:
-          token: ${{ secrets.DEV_PUSH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           user: ${{ secrets.DEV_PUSH_USER }}
           labels: true
           comments: true
