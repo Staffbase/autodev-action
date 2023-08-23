@@ -216,13 +216,15 @@ exports.fetchPulls = fetchPulls;
 const magicString = '<!---__GENERATED_BY_AUTO_DEV_ACTION-->';
 const appendMagicString = (comment) => [comment, '', magicString].join('\n');
 const commentSuccess = (owner, repo, pulls) => `
-🟢 Sucessfully deployed to dev.
-The following Pull Requests have been deployed to dev:
+🟢 Sucessfully merged into the dev branch.
+It can take up to a few minutes until the changes are rolled out to the dev system.
+The following Pull Requests are merged into the dev branch:
 ${pulls.map(pull => `- ${pullURL(owner, repo, pull.number)}`).join('\n')}
 `;
 const commentFail = () => `
-🚨 Unable to deploy this Pull Request to dev.
-Please check the logs of the github action. The Pull requests with dev-labels might have merge conflicts.
+🚨 Unable to merge this branch into the dev branch.
+This usually means that one of the PRs with a dev label has merge conflicts.
+Please check the logs of the github action.
 `;
 const pullURL = (owner, repo, number) => `https://github.com/${owner}/${repo}/pull/${number}`;
 const createComments = (octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment) => __awaiter(void 0, void 0, void 0, function* () {
