@@ -43,15 +43,17 @@ const appendMagicString = (comment: string): string =>
 
 const commentSuccess = (owner: string, repo: string, pulls: Pull[]): string =>
   `
-🟢 Sucessfully deployed to dev.
-The following Pull Requests have been deployed to dev:
+🟢 Sucessfully merged into the dev branch.
+It can take up to a few minutes until the changes are rolled out to the dev system.
+The following Pull Requests are merged into the dev branch:
 ${pulls.map(pull => `- ${pullURL(owner, repo, pull.number)}`).join('\n')}
 `
 
 const commentFail = (): string =>
   `
-🚨 Unable to deploy this Pull Request to dev.
-Please check the logs of the github action. The Pull requests with dev-labels might have merge conflicts.
+🚨 Unable to merge this branch into the dev branch.
+This usually means that one of the PRs with a dev label has merge conflicts.
+Please check the logs of the github action.
 `
 
 const pullURL = (owner: string, repo: string, number: number): string =>
