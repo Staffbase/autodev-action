@@ -31,7 +31,7 @@
     "@actions/exec": "^1.1.0",
     "@actions/github": "^5.1.0",
     "@babel/parser": "^7.22.4",
-    "@octokit/openapi-types": "^18.0.0",
+    "@octokit/openapi-types": "^19.0.2",
     "@types/jest": "^27.0.2",
     "@types/node": "^20.8.6",
     "@typescript-eslint/parser": "^5.62.0",
