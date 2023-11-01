@@ -7,6 +7,13 @@ updates:
       time: "07:00"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 5
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
     ignore:
@@ -20,6 +27,13 @@ updates:
       time: "07:00"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 5
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
     ignore:
