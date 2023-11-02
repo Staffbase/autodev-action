@@ -3,5 +3,5 @@ name: Enable Dependabot Auto-Merge
 on: pull_request
 
 jobs:
-  automerge:
-    uses: Staffbase/gha-workflows/.github/workflows/template_automerge_dependabot.yml@create-depdendabot-automerge
+  dependabot:
+    uses: Staffbase/gha-workflows/.github/workflows/template_automerge_dependabot.yml@v3.0.0
