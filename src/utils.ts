@@ -11,6 +11,7 @@ export interface Pull {
   number: number
   branch: string
   labels: (string | undefined)[]
+  files: string[]
 }
 
 export const getRepoString = (): undefined | string => {

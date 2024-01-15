@@ -10,6 +10,8 @@ import {debug, getInput, info, setFailed} from '@actions/core'
 import {ExecOptions} from '@actions/exec/lib/interfaces'
 import {exec} from '@actions/exec'
 
+import fs from 'fs'
+
 /**
  * this function runs a command via exec, and returns the whole output as string.
  */
@@ -58,6 +60,8 @@ const autoDev = async (): Promise<void> => {
   const customSuccessLabel = getInput('success_label') || 'successful'
   const customFailureLabel = getInput('failure_label') || 'failed'
 
+  const commitMetadata = getInput('commit_metadata') === 'true'
+
   const octokit = createOctokit(token)
 
   const updateComment = async (successfulPulls: Pull[]): Promise<void> =>
@@ -93,7 +97,8 @@ const autoDev = async (): Promise<void> => {
       sha: pull.head.sha,
       number: pull.number,
       branch: pull.head.ref,
-      labels: pull.labels.map(l => l.name)
+      labels: pull.labels.map(l => l.name),
+      files: []
     }))
 
   await exec('git fetch')
@@ -123,6 +128,18 @@ const autoDev = async (): Promise<void> => {
   // only push to defined branch if there are changes
   await exec('git fetch')
   if (await hasDiff('HEAD', `origin/${branch}`)) {
+    if (commitMetadata) {
+      // Write the metadata of the merged PRs to a file.
+      const pullsData = JSON.stringify(pulls, null, 2)
+      fs.writeFile('.autodev.json', pullsData, err => {
+        if (err) {
+          throw err
+        }
+      })
+      await exec('git add .autodev.json')
+      await exec('git commit -m "Add .autodev.json"')
+    }
+
     // ignore any errors
     await exec(`git push -f -u origin ${branch}`, undefined, {
       ignoreReturnCode: true
@@ -151,6 +168,11 @@ const merge = async (
   const failed: Pull[] = []
 
   for (const pull of pulls) {
+    const files = await execAndSlurp(
+      `git diff --name-only origin/${pull.branch}`
+    )
+    pull.files = files.split('\n').filter(f => f !== '')
+
     try {
       await exec(`git merge origin/${pull.branch}`)
       success.push(pull)

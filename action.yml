@@ -46,6 +46,10 @@ inputs:
     required: false
     description: 'Label string that will be add on the Pull request on failure.'
     default: 'failed'
+  commit_metadata:
+    required: false
+    description: 'If true, the action writes a file `.autodev.json` to the repository, containing information about the merged pull requests and the affected files.'
+    default: 'true'
   user:
     required: false
     default: 'AutoDev Action'
