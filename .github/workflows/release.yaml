@@ -12,3 +12,6 @@ jobs:
       publish: true
       name: ${{ github.ref_name }}
       tag: ${{ github.ref_name }}
+    secrets:
+      app_id: ${{ vars.STAFFBASE_ACTIONS_APP_ID }}
+      private_key: ${{ secrets.STAFFBASE_ACTIONS_PRIVATE_KEY }}
