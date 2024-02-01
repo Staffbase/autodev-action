@@ -7,7 +7,7 @@ on:
 
 jobs:
   update_release_draft:
-    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@v3.4.0
+    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@v4.0.2
     with:
       publish: true
       name: ${{ github.ref_name }}
