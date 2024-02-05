@@ -84,8 +84,8 @@ export const createComments = async (
         )
       : appendMagicString(customFailureComment || commentFail())
 
-    const previousComment = comments.data.find(
-      comment => comment.body?.includes(magicString)
+    const previousComment = comments.data.find(comment =>
+      comment.body?.includes(magicString)
     )
 
     if (!previousComment) {
