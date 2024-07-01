@@ -1,5 +1,4 @@
 import {createViteLicensePlugin} from 'rollup-license-plugin'
-import {externalizeDeps} from 'vite-plugin-externalize-deps'
 import {defineConfig} from 'vitest/config'
 
 export default defineConfig({
@@ -7,8 +6,7 @@ export default defineConfig({
     createViteLicensePlugin({
       replenishDefaultLicenseTexts: true,
       outputFilename: 'LICENSES.json'
-    }),
-    externalizeDeps()
+    })
   ],
   build: {
     target: 'esnext',
