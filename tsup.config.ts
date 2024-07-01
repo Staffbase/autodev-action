@@ -1,0 +1,12 @@
+import {defineConfig} from 'tsup'
+
+export default defineConfig({
+  entry: ['./src/index.ts'],
+  format: 'esm',
+  clean: true,
+  target: 'esnext',
+  define: {
+    'import.meta.vitest': 'undefined'
+  },
+  treeshake: true
+})
