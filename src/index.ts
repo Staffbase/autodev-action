@@ -1,5 +1,6 @@
-import autoDev from './autodev'
 import {setFailed} from '@actions/core'
+
+import autoDev from './autodev'
 
 async function run(): Promise<void> {
   try {
@@ -11,4 +12,4 @@ async function run(): Promise<void> {
   }
 }
 
-run()
+void run()

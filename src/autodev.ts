@@ -1,14 +1,16 @@
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
+import {debug, getInput, info, setFailed} from '@actions/core'
+import {exec} from '@actions/exec'
+import {ExecOptions} from '@actions/exec/lib/interfaces'
+
 import {
-  Pull,
   createComments,
   createOctokit,
   fetchPulls,
   getRepoString,
+  Pull,
   updateLabels
 } from './utils'
-import {debug, getInput, info, setFailed} from '@actions/core'
-import {ExecOptions} from '@actions/exec/lib/interfaces'
-import {exec} from '@actions/exec'
 
 /**
  * this function runs a command via exec, and returns the whole output as string.

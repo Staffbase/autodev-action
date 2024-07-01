@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
 import {debug, info} from '@actions/core'
+import {getOctokit} from '@actions/github'
 import {GitHub} from '@actions/github/lib/utils'
 import {components} from '@octokit/openapi-types'
-import {getOctokit} from '@actions/github'
 
 export type PullsListResponseData =
   components['schemas']['pull-request-simple'][]
@@ -14,7 +15,7 @@ export interface Pull {
 }
 
 export const getRepoString = (): undefined | string => {
-  return process.env['GITHUB_REPOSITORY']
+  return process.env.GITHUB_REPOSITORY
 }
 
 export const createOctokit = (token: string): InstanceType<typeof GitHub> =>
