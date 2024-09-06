@@ -1,41 +1,41 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "monthly"
-      time: "07:00"
-      timezone: "Europe/Berlin"
+      interval: 'monthly'
+      time: '07:00'
+      timezone: 'Europe/Berlin'
     open-pull-requests-limit: 5
     groups:
       dependencies:
         patterns:
-          - "*"
+          - '*'
         update-types:
-          - "minor"
-          - "patch"
+          - 'minor'
+          - 'patch'
     labels:
-      - "dependencies"
+      - 'dependencies'
     ignore:
-      - dependency-name: "*"
-        update-types: [ "version-update:semver-patch" ]
+      - dependency-name: '*'
+        update-types: ['version-update:semver-patch']
 
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "monthly"
-      time: "07:00"
-      timezone: "Europe/Berlin"
+      interval: 'monthly'
+      time: '07:00'
+      timezone: 'Europe/Berlin'
     open-pull-requests-limit: 5
     groups:
       dependencies:
         patterns:
-          - "*"
+          - '*'
         update-types:
-          - "minor"
-          - "patch"
+          - 'minor'
+          - 'patch'
     labels:
-      - "dependencies"
+      - 'dependencies'
     ignore:
-      - dependency-name: "*"
-        update-types: [ "version-update:semver-patch" ]
+      - dependency-name: '*'
+        update-types: ['version-update:semver-patch']

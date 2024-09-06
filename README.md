@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          # The token of the user that should perform the merges. 
+          # The token of the user that should perform the merges.
           # This must be a personal access token with the necessary permissions
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           fetch-depth: 0
@@ -38,20 +38,20 @@ jobs:
 
 You can find all input options which are available for this action.
 
-| **Input**       | **Description**                                                                                                                                                                               | **Default**            |
-|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------|
-| token           | PAT for GitHub API authentication                                                                                                                                                             |                        |
-| base            | This is the base branch. The merge history originates from this branch.                                                                                                                       | main                   |
-| branch          | The branch the action will merge the pull requests to.                                                                                                                                        | dev                    |
-| label           | The label where the action will be triggered.                                                                                                                                                 | dev                    |
-| comments        | The GitHub action creates a new comment inside every pull request.                                                                                                                            | false                  |
-| success_comment | Comment string that will be shown in the pull request on success. Only necessary if `comments` is enabled.                                                                                    | ''                     |
-| failure_comment | Comment string that will be shown in the pull request on failure. Only necessary if `comments` is enabled.                                                                                    | ''                     |
-| labels          | The GitHub action updates the labels inside every pull request for successful or failed merges to the dev branch.                                                                             | false                  |
-| success_label   | Label string that will be shown on the Pull request on success. Only necessary if `labels` is enabled.                                                                                        | successful             |
-| failure_label   | Label string that will be shown on the Pull request on failure. Only necessary if `labels` is enabled.                                                                                        | failed                 |
-| user            | Name of the user which does the git commit.                                                                                                                                                   | AutoDev Action         |
-| email           | E-Mail of the user which does the git commit.                                                                                                                                                 | staffbot@staffbase.com |
+| **Input**       | **Description**                                                                                                   | **Default**            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| token           | PAT for GitHub API authentication                                                                                 |                        |
+| base            | This is the base branch. The merge history originates from this branch.                                           | main                   |
+| branch          | The branch the action will merge the pull requests to.                                                            | dev                    |
+| label           | The label where the action will be triggered.                                                                     | dev                    |
+| comments        | The GitHub action creates a new comment inside every pull request.                                                | false                  |
+| success_comment | Comment string that will be shown in the pull request on success. Only necessary if `comments` is enabled.        | ''                     |
+| failure_comment | Comment string that will be shown in the pull request on failure. Only necessary if `comments` is enabled.        | ''                     |
+| labels          | The GitHub action updates the labels inside every pull request for successful or failed merges to the dev branch. | false                  |
+| success_label   | Label string that will be shown on the Pull request on success. Only necessary if `labels` is enabled.            | successful             |
+| failure_label   | Label string that will be shown on the Pull request on failure. Only necessary if `labels` is enabled.            | failed                 |
+| user            | Name of the user which does the git commit.                                                                       | AutoDev Action         |
+| email           | E-Mail of the user which does the git commit.                                                                     | staffbot@staffbase.com |
 
 # Example Usages
 
