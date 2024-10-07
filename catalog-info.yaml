@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: autodev-action
+  annotations:
+    github.com/project-slug: Staffbase/autodev-action
+    backstage.io/source-location: url:https://github.com/Staffbase/autodev-action
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - typescript
+spec:
+  type: other
+  lifecycle: production
+  
