@@ -102,16 +102,15 @@ const autoDev = async (): Promise<void> => {
   const commitDate = await execAndSlurp(
     `git show -s --format='%ci' origin/${base}`
   )
-
-  const isBranchExisting = await execAndSlurp(
+  const existingBranch = await execAndSlurp(
     `git branch -l ${branch} --format='%(refname:short)'`
   )
-  if (!isBranchExisting) {
+
+  if (existingBranch !== branch) {
     await exec(`git checkout -b ${branch} ${base}`)
-    debug(
+    info(
       `branch "${branch}" was not found, so a new branch "${branch}" was created.`
     )
-    info(`Created branch with name: "${branch}"`)
   }
 
   await exec(`git checkout ${base}`)
