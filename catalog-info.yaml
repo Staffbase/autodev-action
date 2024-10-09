@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: autodev-action
+  description: This GitHub action merges labeled PRs into the dev branch.
+  annotations:
+    github.com/project-slug: Staffbase/autodev-action
+  tags:
+    - github-action
+    - typescript
+spec:
+  type: other
+  lifecycle: production
