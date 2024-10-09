@@ -102,6 +102,16 @@ const autoDev = async (): Promise<void> => {
   const commitDate = await execAndSlurp(
     `git show -s --format='%ci' origin/${base}`
   )
+  const existingBranch = await execAndSlurp(
+    `git branch -l ${branch} --format='%(refname:short)'`
+  )
+
+  if (existingBranch !== branch) {
+    await exec(`git checkout -b ${branch} ${base}`)
+    info(
+      `branch "${branch}" was not found, so a new branch "${branch}" was created.`
+    )
+  }
 
   await exec(`git checkout ${base}`)
 
@@ -118,7 +128,17 @@ const autoDev = async (): Promise<void> => {
     )
     info(message)
   }
-  await exec(`git checkout -B ${branch}`)
+
+  // check if the branch exists, if not create it from base
+  const branchExists = await execAndSlurp(
+    `git ls-remote --heads origin ${branch}`
+  )
+  if (!branchExists) {
+    info(`Branch ${branch} does not exist. Creating branch from ${base}.`)
+    await exec(`git checkout -b ${branch} ${base}`)
+  } else {
+    await exec(`git checkout ${branch}`)
+  }
 
   // only push to defined branch if there are changes
   await exec('git fetch')
