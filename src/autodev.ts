@@ -120,6 +120,16 @@ const autoDev = async (): Promise<void> => {
     )
     info(message)
   }
+
+  // check if the branch exists, if not create it from base
+  const branchExists = await execAndSlurp(
+    `git ls-remote --heads origin ${branch}`
+  )
+  if (!branchExists) {
+    info(`Branch ${branch} does not exist. Creating branch from ${base}.`)
+    await exec(`git checkout -b ${branch} ${base}`)
+    await exec(`git push -u origin ${branch}`)
+  }
   await exec(`git checkout -B ${branch}`)
 
   // only push to defined branch if there are changes
