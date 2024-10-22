@@ -1,21 +1,20 @@
-import autoDev from '../src/autodev'
+import autoDev from './autodev'
 import * as exec from '@actions/exec'
 import * as core from '@actions/core'
-import * as utils from '../src/utils'
-import {PullsListResponseData} from '../src/utils'
+import * as utils from './utils'
+import {PullsListResponseData} from './utils'
+import {vi, describe, beforeEach, it, expect, afterEach} from 'vitest'
 
 describe('autodev', () => {
-  let info: jest.SpyInstance
-  let commentsSpy: jest.SpyInstance
-  let labelsSpy: jest.SpyInstance
+  const labelsSpy = vi.spyOn(utils, 'updateLabels').mockResolvedValue()
+  const commentsSpy = vi.spyOn(utils, 'createComments').mockResolvedValue()
+  const info = vi.spyOn(core, 'info')
 
   beforeEach(() => {
-    labelsSpy = jest.spyOn(utils, 'updateLabels').mockResolvedValue()
-    commentsSpy = jest.spyOn(utils, 'createComments').mockResolvedValue()
-    jest
-      .spyOn(utils, 'getRepoString')
-      .mockReturnValue('@staffbase/auto-dev-action')
-    jest.spyOn(utils, 'fetchPulls').mockResolvedValue([
+    vi.spyOn(utils, 'getRepoString').mockReturnValue(
+      '@staffbase/auto-dev-action'
+    )
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([
       {
         number: 1,
         labels: [{name: 'dev'}],
@@ -42,18 +41,15 @@ describe('autodev', () => {
       }
     ] as PullsListResponseData)
 
-    info = jest.spyOn(core, 'info')
-    jest.spyOn(exec, 'exec').mockResolvedValue(0)
+    vi.spyOn(exec, 'exec').mockResolvedValue(0)
   })
 
-  afterEach(() => jest.clearAllMocks())
+  afterEach(() => vi.clearAllMocks())
 
   it('should merge two pull requests', async () => {
-    jest
-      .spyOn(core, 'getInput')
-      .mockImplementation(
-        input => ({token: 'token', base: 'main'})[input] || ''
-      )
+    vi.spyOn(core, 'getInput').mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
 
     await autoDev()
 
@@ -69,11 +65,9 @@ The following branches failed to merge:
   })
 
   it('should add successful comments', async () => {
-    jest
-      .spyOn(core, 'getInput')
-      .mockImplementation(
-        input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
-      )
+    vi.spyOn(core, 'getInput').mockImplementation(
+      input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+    )
 
     await autoDev()
 
@@ -81,11 +75,9 @@ The following branches failed to merge:
   })
 
   it('should add successful labels', async () => {
-    jest
-      .spyOn(core, 'getInput')
-      .mockImplementation(
-        input => ({token: 'token', base: 'main', labels: 'true'})[input] || ''
-      )
+    vi.spyOn(core, 'getInput').mockImplementation(
+      input => ({token: 'token', base: 'main', labels: 'true'})[input] || ''
+    )
 
     await autoDev()
 
