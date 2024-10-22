@@ -21,7 +21,7 @@ export default ts.config(
     }
   },
   {
-    files: ['**.{cjs.mjs,js}'],
+    files: ['**.{cjs.mjs,ts}'],
     ...ts.configs.disableTypeChecked
   },
   {
