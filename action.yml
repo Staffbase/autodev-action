@@ -5,7 +5,7 @@ branding:
   color: 'blue'
 runs:
   using: 'node20'
-  main: 'dist/index.js'
+  main: 'dist/staffbase-autodev.js'
 inputs:
   token:
     required: true
