@@ -1,5 +1,6 @@
-import autoDev from './autodev'
 import {setFailed} from '@actions/core'
+
+import autoDev from './autodev'
 
 async function run(): Promise<void> {
   try {
@@ -7,8 +8,8 @@ async function run(): Promise<void> {
   } catch (error) {
     if (error instanceof Error) {
       setFailed(error)
-    }
+    } 
   }
 }
 
-run()
+void run()
