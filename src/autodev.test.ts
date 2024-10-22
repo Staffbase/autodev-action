@@ -1,9 +1,10 @@
-import autoDev from './autodev'
-import * as exec from '@actions/exec'
 import * as core from '@actions/core'
+import * as exec from '@actions/exec'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+
+import autoDev from './autodev'
+import type {PullsListResponseData} from './utils'
 import * as utils from './utils'
-import {PullsListResponseData} from './utils'
-import {vi, describe, beforeEach, it, expect, afterEach} from 'vitest'
 
 describe('autodev', () => {
   const labelsSpy = vi.spyOn(utils, 'updateLabels').mockResolvedValue()

@@ -1,7 +1,7 @@
 import {debug, info} from '@actions/core'
-import {GitHub} from '@actions/github/lib/utils'
-import {components} from '@octokit/openapi-types'
 import {getOctokit} from '@actions/github'
+import type {GitHub} from '@actions/github/lib/utils'
+import type {components} from '@octokit/openapi-types'
 
 export type PullsListResponseData =
   components['schemas']['pull-request-simple'][]

@@ -1,14 +1,15 @@
+import {debug, getInput, info, setFailed} from '@actions/core'
+import {exec} from '@actions/exec'
+import type {ExecOptions} from '@actions/exec/lib/interfaces'
+
+import type {Pull} from './utils'
 import {
-  Pull,
   createComments,
   createOctokit,
   fetchPulls,
   getRepoString,
   updateLabels
 } from './utils'
-import {debug, getInput, info, setFailed} from '@actions/core'
-import {ExecOptions} from '@actions/exec/lib/interfaces'
-import {exec} from '@actions/exec'
 
 /**
  * this function runs a command via exec, and returns the whole output as string.
@@ -166,6 +167,7 @@ const merge = async (
       success.push(pull)
     } catch (error) {
       info(
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         `encountered merge conflicts with branch "${pull.branch}", error: ${error}`
       )
       await exec(`git merge --abort`)
