@@ -12,6 +12,9 @@ categories:
     labels:
       - 'chore'
       - 'dependencies'
+  - title: '🧹 Documentation'
+    labels:
+      - 'documentation'
 template: |
   ## Changes
 

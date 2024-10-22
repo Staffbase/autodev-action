@@ -10,7 +10,7 @@
     "lint": "eslint src/**/*.ts",
     "package": "ncc build --source-map --license licenses.txt",
     "test": "jest",
-    "all": "npm run build && npm run format && npm run lint && npm run package && npm test"
+    "all": "pnpm run build && pnpm run format && pnpm run lint && pnpm run package && pnpm test"
   },
   "repository": {
     "type": "git",
@@ -47,5 +47,6 @@
     "prettier": "3.3.2",
     "ts-jest": "^29.2.3",
     "typescript": "^5.6.2"
-  }
+  },
+  "packageManager": "pnpm@9.12.2"
 }

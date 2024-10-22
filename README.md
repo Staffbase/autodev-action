@@ -101,7 +101,7 @@ You can create a new release by creating a new tag and bump the version in `pack
 Very nice that you want to work on the action. To create a working implementation, you can use the following command to perform all the necessary actions.
 
 ```bash
-npm run all
+pnpm run all
 ```
 
 <table>
