@@ -7,9 +7,9 @@ export type PullsListResponseData =
   components['schemas']['pull-request-simple'][]
 
 export interface Pull {
-  sha: string 
+  sha: string
   number: number
-  branch: string 
+  branch: string
   labels: (string | undefined)[]
 }
 
