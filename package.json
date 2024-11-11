@@ -7,7 +7,7 @@
     "format": "prettier --write '**/*.ts'",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint src/**/*.ts",
-    "package": "ncc build src/index.ts --target es2022 --source-map --license licenses.txt",
+    "package": "ncc build src/index.ts --source-map --license licenses.txt",
     "test": "vitest run",
     "test:watch": "vitest",
     "all": "pnpm run format && pnpm run lint && pnpm run package && pnpm test"
