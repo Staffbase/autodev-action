@@ -88,10 +88,6 @@ Add a status label if the merge was successful or failed.
     failure_label: 'failed'
 ```
 
-# Limitations
-
-- currently only the first 100 pull requests are analyzed
-
 # Release
 
 You can create a new release by creating a new tag and bump the version in `package.json.`
