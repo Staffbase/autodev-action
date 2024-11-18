@@ -25,7 +25,7 @@ export const fetchPulls = async (
   owner: string,
   repo: string
 ): Promise<PullsListResponseData> => {
-  const {data: allPulls} = await octokit.rest.pulls.list({
+  return await octokit.paginate(octokit.rest.pulls.list, {
     owner,
     repo,
     per_page: 100,
@@ -33,7 +33,6 @@ export const fetchPulls = async (
     sort: 'created',
     direction: 'asc'
   })
-  return allPulls
 }
 
 const magicString = '<!---__GENERATED_BY_AUTO_DEV_ACTION-->'

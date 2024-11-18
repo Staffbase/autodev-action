@@ -31682,7 +31682,7 @@ const getRepoString = () => {
 };
 const createOctokit = (token) => (0,github.getOctokit)(token);
 const fetchPulls = async (octokit, owner, repo) => {
-    const { data: allPulls } = await octokit.rest.pulls.list({
+    return await octokit.paginate(octokit.rest.pulls.list, {
         owner,
         repo,
         per_page: 100,
@@ -31690,7 +31690,6 @@ const fetchPulls = async (octokit, owner, repo) => {
         sort: 'created',
         direction: 'asc'
     });
-    return allPulls;
 };
 const magicString = '<!---__GENERATED_BY_AUTO_DEV_ACTION-->';
 const appendMagicString = (comment) => [comment, '', magicString].join('\n');
