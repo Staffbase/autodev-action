@@ -31841,14 +31841,14 @@ const autoDev = async () => {
     if (!branchExists) {
         (0,core.info)(`Branch ${branch} does not exist. Creating branch from ${base}.`);
         await (0,exec.exec)(`git checkout -b ${branch} ${base}`);
-        await (0,exec.exec)(`git push -u origin ${branch}`);
+        await (0,exec.exec)(`git push -u origin refs/heads/${branch}`);
     }
     await (0,exec.exec)(`git checkout -B ${branch}`);
     // only push to defined branch if there are changes
     await (0,exec.exec)('git fetch');
     if (await hasDiff('HEAD', `origin/${branch}`)) {
         // ignore any errors
-        await (0,exec.exec)(`git push -f -u origin ${branch}`, undefined, {
+        await (0,exec.exec)(`git push -f -u origin refs/heads/${branch}`, undefined, {
             ignoreReturnCode: true
         });
     }
