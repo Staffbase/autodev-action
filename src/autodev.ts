@@ -127,7 +127,7 @@ const autoDev = async (): Promise<void> => {
   if (!branchExists) {
     info(`Branch ${branch} does not exist. Creating branch from ${base}.`)
     await exec(`git checkout -b ${branch} ${base}`)
-    await exec(`git push -u origin ${branch}`)
+    await exec(`git push -u origin refs/heads/${branch}`)
   }
   await exec(`git checkout -B ${branch}`)
 
@@ -135,7 +135,7 @@ const autoDev = async (): Promise<void> => {
   await exec('git fetch')
   if (await hasDiff('HEAD', `origin/${branch}`)) {
     // ignore any errors
-    await exec(`git push -f -u origin ${branch}`, undefined, {
+    await exec(`git push -f -u origin refs/heads/${branch}`, undefined, {
       ignoreReturnCode: true
     })
   }
