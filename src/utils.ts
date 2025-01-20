@@ -56,7 +56,7 @@ Please check the logs of the github action.
 `
 
 const pullURL = (owner: string, repo: string, number: number): string =>
-  `https://github.com/${owner}/${repo}/pull/${number}`
+  `https://redirect.github.com/${owner}/${repo}/pull/${number}`
 
 export const createComments = async (
   octokit: InstanceType<typeof GitHub>,
