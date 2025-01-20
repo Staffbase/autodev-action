@@ -31704,7 +31704,7 @@ const commentFail = () => `
 This usually means that one of the PRs with a dev label has merge conflicts.
 Please check the logs of the github action.
 `;
-const pullURL = (owner, repo, number) => `https://github.com/${owner}/${repo}/pull/${number}`;
+const pullURL = (owner, repo, number) => `https://redirect.github.com/${owner}/${repo}/pull/${number}`;
 const createComments = async (octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment) => {
     (0,core.info)('update comments');
     for (const pull of pulls) {
