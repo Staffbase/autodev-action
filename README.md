@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Autodev
-        uses: Staffbase/autodev-action@v2.1.0
+        uses: Staffbase/autodev-action@v2.5.0
         with:
           # The token used to fetch the pull requests from the GitHub API
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
