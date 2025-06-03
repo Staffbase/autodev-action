@@ -103,7 +103,7 @@ pnpm run all
 <table>
   <tr>
     <td>
-      <img src="docs/assets/images/staffbase.png" alt="Staffbase GmbH" width="96" />
+      <img src="docs/assets/images/staffbase.png" alt="Staffbase SE" width="96" />
     </td>
     <td>
       <b>Staffbase SE</b>

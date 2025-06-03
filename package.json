@@ -22,7 +22,7 @@
     "auto-dev",
     "auto-merge"
   ],
-  "author": "Staffbase GmbH",
+  "author": "Staffbase SE",
   "license": "Apache-2.0",
   "dependencies": {
     "@actions/core": "^1.10.0"
