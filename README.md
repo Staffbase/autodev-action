@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Autodev
-        uses: Staffbase/autodev-action@v2.1.0
+        uses: Staffbase/autodev-action@v2.5.0
         with:
           # The token used to fetch the pull requests from the GitHub API
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
@@ -55,11 +55,11 @@ You can find all input options which are available for this action.
 
 # Example Usages
 
-Always create the dev branch.
+Always create a dev branch if you're using a version older than v2.2.
 
 ```yaml
 - name: Autodev
-  uses: Staffbase/autodev-action@v2.1.0
+  uses: Staffbase/autodev-action@v2.5.0
   with:
     token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 ```
@@ -68,7 +68,7 @@ Add a status comment if the merge was successful or failed.
 
 ```yaml
 - name: Autodev
-  uses: Staffbase/autodev-action@v2.1.0
+  uses: Staffbase/autodev-action@v2.5.0
   with:
     token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     comments: true
@@ -80,7 +80,7 @@ Add a status label if the merge was successful or failed.
 
 ```yaml
 - name: Autodev
-  uses: Staffbase/autodev-action@v2.1.0
+  uses: Staffbase/autodev-action@v2.5.0
   with:
     token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     labels: true
@@ -103,10 +103,10 @@ pnpm run all
 <table>
   <tr>
     <td>
-      <img src="docs/assets/images/staffbase.png" alt="Staffbase GmbH" width="96" />
+      <img src="docs/assets/images/staffbase.png" alt="Staffbase SE" width="96" />
     </td>
     <td>
-      <b>Staffbase GmbH</b>
+      <b>Staffbase SE</b>
       <br />Staffbase is an internal communications platform built to revolutionize the way you work and unite your company. Staffbase is hiring: <a href="https://jobs.staffbase.com" target="_blank" rel="noreferrer">jobs.staffbase.com</a>
       <br /><a href="https://github.com/Staffbase" target="_blank" rel="noreferrer">GitHub</a> | <a href="https://staffbase.com/" target="_blank" rel="noreferrer">Website</a> | <a href="https://jobs.staffbase.com" target="_blank" rel="noreferrer">Jobs</a>
     </td>
