@@ -33,7 +33,6 @@
     "@babel/parser": "^7.28.4",
     "@eslint/js": "^9.36.0",
     "@octokit/openapi-types": "^26.0.0",
-    "@types/eslint__js": "^9.14.0",
     "@types/node": "^24.6.1",
     "@vercel/ncc": "^0.38.2",
     "eslint": "^9.36.0",
