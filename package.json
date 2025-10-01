@@ -1,6 +1,6 @@
 {
   "name": "autodev-action",
-  "version": "v2.5.0",
+  "version": "v2.6.0",
   "description": "Github Action that tries to merge all commits from a PR with the dev label into the dev branch.",
   "type": "module",
   "scripts": {
@@ -29,20 +29,19 @@
   },
   "devDependencies": {
     "@actions/exec": "^1.1.1",
-    "@actions/github": "^6.0.0",
-    "@babel/parser": "^7.26.2",
-    "@eslint/js": "^9.19.0",
+    "@actions/github": "^6.0.1",
+    "@babel/parser": "^7.28.4",
+    "@eslint/js": "^9.36.0",
     "@octokit/openapi-types": "^26.0.0",
-    "@types/eslint__js": "^8.42.3",
     "@types/node": "^24.6.1",
-    "@vercel/ncc": "^0.38.2",
-    "eslint": "^9.19.0",
+    "@vercel/ncc": "^0.38.4",
+    "eslint": "^9.36.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "js-yaml": "^4.1.0",
-    "prettier": "3.4.1",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.22.0",
-    "vitest": "^3.0.5"
+    "prettier": "3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.45.0",
+    "vitest": "^3.2.4"
   },
-  "packageManager": "pnpm@9.12.2"
+  "packageManager": "pnpm@9.14.4"
 }
