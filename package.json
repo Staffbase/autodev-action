@@ -32,7 +32,7 @@
     "@actions/github": "^6.0.1",
     "@babel/parser": "^7.28.4",
     "@eslint/js": "^9.39.0",
-    "@octokit/openapi-types": "^26.0.0",
+    "@octokit/openapi-types": "^27.0.0",
     "@types/node": "^24.9.2",
     "@vercel/ncc": "^0.38.4",
     "eslint": "^9.39.0",
