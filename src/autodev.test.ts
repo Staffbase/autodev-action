@@ -8,7 +8,7 @@ vi.mock('@actions/core', () => ({
 }))
 
 vi.mock('@actions/exec', () => ({
-  exec: vi.fn().mockResolvedValue(0)
+  exec: vi.fn()
 }))
 
 import {getInput, info} from '@actions/core'
