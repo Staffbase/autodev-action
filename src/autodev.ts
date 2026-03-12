@@ -1,6 +1,6 @@
 import {debug, getInput, info, setFailed} from '@actions/core'
+import type {ExecOptions} from '@actions/exec'
 import {exec} from '@actions/exec'
-import type {ExecOptions} from '@actions/exec/lib/interfaces'
 
 import type {Pull} from './utils'
 import {

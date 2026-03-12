@@ -1,6 +1,18 @@
-import * as core from '@actions/core'
-import * as exec from '@actions/exec'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+
+vi.mock('@actions/core', () => ({
+  debug: vi.fn(),
+  getInput: vi.fn(),
+  info: vi.fn(),
+  setFailed: vi.fn()
+}))
+
+vi.mock('@actions/exec', () => ({
+  exec: vi.fn().mockResolvedValue(0)
+}))
+
+import {getInput, info} from '@actions/core'
+import {exec} from '@actions/exec'
 
 import autoDev from './autodev'
 import type {PullsListResponseData} from './utils'
@@ -9,7 +21,6 @@ import * as utils from './utils'
 describe('autodev', () => {
   const labelsSpy = vi.spyOn(utils, 'updateLabels').mockResolvedValue()
   const commentsSpy = vi.spyOn(utils, 'createComments').mockResolvedValue()
-  const info = vi.spyOn(core, 'info')
 
   beforeEach(() => {
     vi.spyOn(utils, 'getRepoString').mockReturnValue(
@@ -42,13 +53,13 @@ describe('autodev', () => {
       }
     ] as PullsListResponseData)
 
-    vi.spyOn(exec, 'exec').mockResolvedValue(0)
+    vi.mocked(exec).mockResolvedValue(0)
   })
 
   afterEach(() => vi.clearAllMocks())
 
   it('should merge two pull requests', async () => {
-    vi.spyOn(core, 'getInput').mockImplementation(
+    vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''
     )
 
@@ -66,7 +77,7 @@ The following branches failed to merge:
   })
 
   it('should add successful comments', async () => {
-    vi.spyOn(core, 'getInput').mockImplementation(
+    vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
     )
 
@@ -76,7 +87,7 @@ The following branches failed to merge:
   })
 
   it('should add successful labels', async () => {
-    vi.spyOn(core, 'getInput').mockImplementation(
+    vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main', labels: 'true'})[input] || ''
     )
 
