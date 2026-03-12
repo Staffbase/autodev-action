@@ -1,10 +1,11 @@
 import {debug, info} from '@actions/core'
 import {getOctokit} from '@actions/github'
-import type {GitHub} from '@actions/github/lib/utils'
 import type {components} from '@octokit/openapi-types'
 
 export type PullsListResponseData =
   components['schemas']['pull-request-simple'][]
+
+type OctokitClient = ReturnType<typeof getOctokit>
 
 export interface Pull {
   sha: string
@@ -17,11 +18,10 @@ export const getRepoString = (): undefined | string => {
   return process.env['GITHUB_REPOSITORY']
 }
 
-export const createOctokit = (token: string): InstanceType<typeof GitHub> =>
-  getOctokit(token)
+export const createOctokit = (token: string): OctokitClient => getOctokit(token)
 
 export const fetchPulls = async (
-  octokit: InstanceType<typeof GitHub>,
+  octokit: OctokitClient,
   owner: string,
   repo: string
 ): Promise<PullsListResponseData> => {
@@ -59,7 +59,7 @@ const pullURL = (owner: string, repo: string, number: number): string =>
   `https://redirect.github.com/${owner}/${repo}/pull/${number}`
 
 export const createComments = async (
-  octokit: InstanceType<typeof GitHub>,
+  octokit: OctokitClient,
   owner: string,
   repo: string,
   pulls: Pull[],
@@ -112,7 +112,7 @@ export const createComments = async (
 }
 
 export const updateLabels = async (
-  octokit: InstanceType<typeof GitHub>,
+  octokit: OctokitClient,
   owner: string,
   repo: string,
   pulls: Pull[],
