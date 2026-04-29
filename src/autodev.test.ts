@@ -11,12 +11,30 @@ vi.mock('@actions/exec', () => ({
   exec: vi.fn()
 }))
 
-import {getInput, info} from '@actions/core'
+import {getInput, info, setFailed} from '@actions/core'
 import {exec} from '@actions/exec'
 
 import autoDev from './autodev'
 import type {PullsListResponseData} from './utils'
 import * as utils from './utils'
+
+const REMOTE_DEV_SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+const REMOTE_HEAD_SHA = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+
+const stubRefSpecificExec = (extra?: Record<string, string>): void => {
+  const refMap: Record<string, string | undefined> = {
+    'git rev-parse origin/dev': REMOTE_DEV_SHA,
+    'git rev-parse HEAD': REMOTE_HEAD_SHA,
+    ...extra
+  }
+  vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+    const out = refMap[cmd]
+    if (out) {
+      opts?.listeners?.stdout?.(Buffer.from(`${out}\n`))
+    }
+    return Promise.resolve(0)
+  })
+}
 
 describe('autodev', () => {
   const labelsSpy = vi.spyOn(utils, 'updateLabels').mockResolvedValue()
@@ -53,7 +71,7 @@ describe('autodev', () => {
       }
     ] as PullsListResponseData)
 
-    vi.mocked(exec).mockResolvedValue(0)
+    stubRefSpecificExec()
   })
 
   afterEach(() => vi.clearAllMocks())
@@ -94,5 +112,53 @@ The following branches failed to merge:
     await autoDev()
 
     expect(labelsSpy).toHaveBeenCalled()
+  })
+
+  it('should push with --force-with-lease pinned to the observed remote sha', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+
+    await autoDev()
+
+    expect(exec).toHaveBeenCalledWith(
+      `git push --force-with-lease=refs/heads/dev:${REMOTE_DEV_SHA} -u origin refs/heads/dev`,
+      undefined,
+      {ignoreReturnCode: true}
+    )
+    expect(exec).not.toHaveBeenCalledWith(
+      'git push -f -u origin refs/heads/dev',
+      undefined,
+      expect.anything()
+    )
+  })
+
+  it('should setFailed when the push is rejected because origin/dev moved', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd.startsWith('git push --force-with-lease')) {
+        return Promise.resolve(1)
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(setFailed).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `push to dev aborted: origin/dev moved during this run`
+      )
+    )
   })
 })

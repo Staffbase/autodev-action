@@ -36220,10 +36220,19 @@ const autoDev = async () => {
     // only push to defined branch if there are changes
     await exec_exec('git fetch');
     if (await hasDiff('HEAD', `origin/${branch}`)) {
-        // ignore any errors
-        await exec_exec(`git push -f -u origin refs/heads/${branch}`, undefined, {
-            ignoreReturnCode: true
-        });
+        // Capture the remote SHA we just observed and use --force-with-lease so
+        // the push aborts if a concurrent run has already updated origin/${branch}.
+        // Without this guard, two parallel runs that both started from different
+        // origin/${base} states race on `git push -f`: whichever finishes last
+        // wins, and a slower run can overwrite a fresher branch tip with stale
+        // data.
+        const expected = (await execAndSlurp(`git rev-parse origin/${branch}`)).trim();
+        const code = await exec_exec(`git push --force-with-lease=refs/heads/${branch}:${expected} -u origin refs/heads/${branch}`, undefined, { ignoreReturnCode: true });
+        if (code !== 0) {
+            setFailed(`push to ${branch} aborted: origin/${branch} moved during this run ` +
+                `(expected ${expected.substring(0, 7)}). A subsequent AutoDev run will rebuild the branch.`);
+            return;
+        }
     }
 };
 const hasDiff = async (a, b) => {
