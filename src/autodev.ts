@@ -106,18 +106,13 @@ const autoDev = async (): Promise<void> => {
 
   await exec(`git checkout ${base}`)
 
+  let mergeResult: MergeResult | undefined
   if (pulls.length === 0) {
     info('🎉 No Pull Requests found. Nothing to merge.')
   } else {
     debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`)
-    const message = await merge(
-      base,
-      pulls,
-      updateComment,
-      updateLabel,
-      commitDate
-    )
-    info(message)
+    mergeResult = await merge(base, pulls, commitDate)
+    info(mergeResult.message)
   }
 
   // check if the branch exists, if not create it from base
@@ -158,6 +153,14 @@ const autoDev = async (): Promise<void> => {
       return
     }
   }
+
+  // Comments and labels are written to the PRs only after the push step has
+  // completed without rejection. Otherwise a lease-rejected push would leave
+  // success comments/labels on PRs whose merges never landed on the branch.
+  if (mergeResult && mergeResult.success.length > 0) {
+    await updateComment(mergeResult.success)
+    await updateLabel(mergeResult.success)
+  }
 }
 
 const hasDiff = async (a: string, b: string): Promise<boolean> => {
@@ -167,16 +170,16 @@ const hasDiff = async (a: string, b: string): Promise<boolean> => {
   )
 }
 
-type Comment = (success: Pull[]) => Promise<void>
-type Label = (success: Pull[]) => Promise<void>
+interface MergeResult {
+  message: string
+  success: Pull[]
+}
 
 const merge = async (
   base: string,
   pulls: Pull[],
-  comment: Comment,
-  label: Label,
   commitDate: string
-): Promise<string> => {
+): Promise<MergeResult> => {
   const success: Pull[] = []
   const failed: Pull[] = []
 
@@ -213,7 +216,7 @@ const merge = async (
     `The following branches failed to merge:\n${failList}`
 
   if (success.length === 0) {
-    return message
+    return {message, success}
   }
 
   await exec(`git reset origin/${base}`)
@@ -229,10 +232,7 @@ const merge = async (
   const rev = await execAndSlurp('git rev-parse HEAD')
   await exec(`git checkout replace/${rev}`)
 
-  await comment(success)
-  await label(success)
-
-  return message
+  return {message, success}
 }
 
 export default autoDev

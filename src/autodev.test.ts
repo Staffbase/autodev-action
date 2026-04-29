@@ -161,4 +161,70 @@ The following branches failed to merge:
       )
     )
   })
+
+  it('should not post comments or labels when the push is rejected', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input =>
+        ({token: 'token', base: 'main', comments: 'true', labels: 'true'})[
+          input
+        ] || ''
+    )
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd.startsWith('git push --force-with-lease')) {
+        return Promise.resolve(1)
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(commentsSpy).not.toHaveBeenCalled()
+    expect(labelsSpy).not.toHaveBeenCalled()
+  })
+
+  it('should post comments and labels only after a successful push', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input =>
+        ({token: 'token', base: 'main', comments: 'true', labels: 'true'})[
+          input
+        ] || ''
+    )
+
+    const callOrder: string[] = []
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd.startsWith('git push --force-with-lease')) {
+        callOrder.push('push')
+      }
+      return Promise.resolve(0)
+    })
+    commentsSpy.mockImplementation(() => {
+      callOrder.push('comment')
+      return Promise.resolve()
+    })
+    labelsSpy.mockImplementation(() => {
+      callOrder.push('label')
+      return Promise.resolve()
+    })
+
+    await autoDev()
+
+    expect(callOrder).toEqual(['push', 'comment', 'label'])
+  })
 })

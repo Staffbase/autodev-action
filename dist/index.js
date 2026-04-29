@@ -36201,13 +36201,14 @@ const autoDev = async () => {
     await exec_exec(`git config user.name "${user}"`);
     const commitDate = await execAndSlurp(`git show -s --format='%ci' origin/${base}`);
     await exec_exec(`git checkout ${base}`);
+    let mergeResult;
     if (pulls.length === 0) {
         info('🎉 No Pull Requests found. Nothing to merge.');
     }
     else {
         core_debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`);
-        const message = await autodev_merge(base, pulls, updateComment, updateLabel, commitDate);
-        info(message);
+        mergeResult = await autodev_merge(base, pulls, commitDate);
+        info(mergeResult.message);
     }
     // check if the branch exists, if not create it from base
     const branchExists = await execAndSlurp(`git ls-remote --heads origin ${branch}`);
@@ -36234,12 +36235,19 @@ const autoDev = async () => {
             return;
         }
     }
+    // Comments and labels are written to the PRs only after the push step has
+    // completed without rejection. Otherwise a lease-rejected push would leave
+    // success comments/labels on PRs whose merges never landed on the branch.
+    if (mergeResult && mergeResult.success.length > 0) {
+        await updateComment(mergeResult.success);
+        await updateLabel(mergeResult.success);
+    }
 };
 const hasDiff = async (a, b) => {
     return ((await execAndSlurp(`git rev-parse ${a}`)) !==
         (await execAndSlurp(`git rev-parse ${b}`)));
 };
-const autodev_merge = async (base, pulls, comment, label, commitDate) => {
+const autodev_merge = async (base, pulls, commitDate) => {
     const success = [];
     const failed = [];
     for (const pull of pulls) {
@@ -36268,7 +36276,7 @@ const autodev_merge = async (base, pulls, comment, label, commitDate) => {
         `The following branches have been merged:\n${successList}\n\n` +
         `The following branches failed to merge:\n${failList}`;
     if (success.length === 0) {
-        return message;
+        return { message, success };
     }
     await exec_exec(`git reset origin/${base}`);
     await exec_exec('git add -A');
@@ -36277,9 +36285,7 @@ const autodev_merge = async (base, pulls, comment, label, commitDate) => {
     await exec_exec(`git replace --graft HEAD origin/${base}`, success.map(p => `origin/${p.branch}`), overrideDate);
     const rev = await execAndSlurp('git rev-parse HEAD');
     await exec_exec(`git checkout replace/${rev}`);
-    await comment(success);
-    await label(success);
-    return message;
+    return { message, success };
 };
 /* harmony default export */ const autodev = (autoDev);
 
