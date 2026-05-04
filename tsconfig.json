@@ -10,7 +10,8 @@
     "noEmit": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "lib": ["ESNext"]
+    "lib": ["ESNext"],
+    "rootDir": "./src"
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "lib"]
