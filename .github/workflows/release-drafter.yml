@@ -1,0 +1,17 @@
+name: Release Drafter
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  update_release_draft:
+    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@v13.1.0
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
