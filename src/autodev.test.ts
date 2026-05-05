@@ -4,14 +4,15 @@ vi.mock('@actions/core', () => ({
   debug: vi.fn(),
   getInput: vi.fn(),
   info: vi.fn(),
-  setFailed: vi.fn()
+  setFailed: vi.fn(),
+  warning: vi.fn()
 }))
 
 vi.mock('@actions/exec', () => ({
   exec: vi.fn()
 }))
 
-import {getInput, info, setFailed} from '@actions/core'
+import {getInput, info, setFailed, warning} from '@actions/core'
 import {exec} from '@actions/exec'
 
 import autoDev from './autodev'
@@ -134,7 +135,7 @@ The following branches failed to merge:
     )
   })
 
-  it('should setFailed when the push is rejected because origin/dev moved', async () => {
+  it('should warn but not fail when the push is rejected because origin/dev moved', async () => {
     vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''
     )
@@ -167,11 +168,12 @@ The following branches failed to merge:
 
     await autoDev()
 
-    expect(setFailed).toHaveBeenCalledWith(
+    expect(warning).toHaveBeenCalledWith(
       expect.stringContaining(
-        `push to dev aborted: origin/dev moved during this run`
+        `push to dev skipped: origin/dev moved during this run`
       )
     )
+    expect(setFailed).not.toHaveBeenCalled()
   })
 
   it('should setFailed with a generic message when the push fails for non-lease reasons', async () => {

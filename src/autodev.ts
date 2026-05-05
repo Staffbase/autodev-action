@@ -1,4 +1,4 @@
-import {debug, getInput, info, setFailed} from '@actions/core'
+import {debug, getInput, info, setFailed, warning} from '@actions/core'
 import type {ExecOptions} from '@actions/exec'
 import {exec} from '@actions/exec'
 
@@ -159,8 +159,13 @@ const autoDev = async (): Promise<void> => {
         pushStderr
       )
       if (leaseRejected) {
-        setFailed(
-          `push to ${branch} aborted: origin/${branch} moved during this run ` +
+        // A concurrent run won the race. This is expected behavior, not a
+        // failure: the workflow that pushed last has already produced a fresh
+        // ${branch} tip, and a subsequent AutoDev run will reconcile any
+        // changes that landed afterwards. Surface it as a warning so the run
+        // stays green and we don't spam failure notifications.
+        warning(
+          `push to ${branch} skipped: origin/${branch} moved during this run ` +
             `(expected ${initialRemoteSha.substring(0, 7)}). A subsequent AutoDev run will rebuild the branch.`
         )
       } else {

@@ -31690,7 +31690,7 @@ function error(message, properties = {}) {
  * @param properties optional properties to add to the annotation.
  */
 function warning(message, properties = {}) {
-    issueCommand('warning', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+    command_issueCommand('warning', utils_toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
 /**
  * Adds a notice issue
@@ -36243,7 +36243,12 @@ const autoDev = async () => {
         if (code !== 0) {
             const leaseRejected = /stale info|non-fast-forward|\[rejected]/i.test(pushStderr);
             if (leaseRejected) {
-                setFailed(`push to ${branch} aborted: origin/${branch} moved during this run ` +
+                // A concurrent run won the race. This is expected behavior, not a
+                // failure: the workflow that pushed last has already produced a fresh
+                // ${branch} tip, and a subsequent AutoDev run will reconcile any
+                // changes that landed afterwards. Surface it as a warning so the run
+                // stays green and we don't spam failure notifications.
+                warning(`push to ${branch} skipped: origin/${branch} moved during this run ` +
                     `(expected ${initialRemoteSha.substring(0, 7)}). A subsequent AutoDev run will rebuild the branch.`);
             }
             else {
