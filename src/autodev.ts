@@ -1,4 +1,4 @@
-import {debug, getInput, info, setFailed} from '@actions/core'
+import {debug, getInput, info, setFailed, warning} from '@actions/core'
 import type {ExecOptions} from '@actions/exec'
 import {exec} from '@actions/exec'
 
@@ -104,40 +104,85 @@ const autoDev = async (): Promise<void> => {
     `git show -s --format='%ci' origin/${base}`
   )
 
+  // Snapshot origin/${branch} at the start of the run. This SHA becomes the
+  // --force-with-lease expectation for the final push: if a concurrent run
+  // advances origin/${branch} while we are working, our push must abort
+  // instead of overwriting the newer tip with our stale build. Capturing it
+  // immediately before the push would defeat the guard, because the stale
+  // run would simply observe (and adopt) the newer SHA as its expectation.
+  const initialBranchSnapshot = await execAndSlurp(
+    `git ls-remote --heads origin ${branch}`
+  )
+  let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || ''
+
   await exec(`git checkout ${base}`)
 
+  let mergeResult: MergeResult | undefined
   if (pulls.length === 0) {
     info('🎉 No Pull Requests found. Nothing to merge.')
   } else {
     debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`)
-    const message = await merge(
-      base,
-      pulls,
-      updateComment,
-      updateLabel,
-      commitDate
-    )
-    info(message)
+    mergeResult = await merge(base, pulls, commitDate)
+    info(mergeResult.message)
   }
 
   // check if the branch exists, if not create it from base
-  const branchExists = await execAndSlurp(
-    `git ls-remote --heads origin ${branch}`
-  )
-  if (!branchExists) {
+  if (!initialBranchSnapshot) {
     info(`Branch ${branch} does not exist. Creating branch from ${base}.`)
     await exec(`git checkout -b ${branch} ${base}`)
     await exec(`git push -u origin refs/heads/${branch}`)
+    // Branch was just created in this run; the lease should expect the SHA
+    // we just pushed, not an empty ref.
+    initialRemoteSha = (await execAndSlurp(`git rev-parse HEAD`)).trim()
   }
   await exec(`git checkout -B ${branch}`)
 
   // only push to defined branch if there are changes
   await exec('git fetch')
   if (await hasDiff('HEAD', `origin/${branch}`)) {
-    // ignore any errors
-    await exec(`git push -f -u origin refs/heads/${branch}`, undefined, {
-      ignoreReturnCode: true
-    })
+    let pushStderr = ''
+    const code = await exec(
+      `git push --force-with-lease=refs/heads/${branch}:${initialRemoteSha} -u origin refs/heads/${branch}`,
+      undefined,
+      {
+        ignoreReturnCode: true,
+        listeners: {
+          stderr: (data: Buffer) => {
+            pushStderr += data.toString()
+          }
+        }
+      }
+    )
+
+    if (code !== 0) {
+      const leaseRejected = /stale info|non-fast-forward|\[rejected]/i.test(
+        pushStderr
+      )
+      if (leaseRejected) {
+        // A concurrent run won the race. This is expected behavior, not a
+        // failure: the workflow that pushed last has already produced a fresh
+        // ${branch} tip, and a subsequent AutoDev run will reconcile any
+        // changes that landed afterwards. Surface it as a warning so the run
+        // stays green and we don't spam failure notifications.
+        warning(
+          `push to ${branch} skipped: origin/${branch} moved during this run ` +
+            `(expected ${initialRemoteSha.substring(0, 7)}). A subsequent AutoDev run will rebuild the branch.`
+        )
+      } else {
+        setFailed(
+          `push to ${branch} failed with exit code ${code}: ${pushStderr.trim() || 'no stderr captured'}`
+        )
+      }
+      return
+    }
+  }
+
+  // Comments and labels are written to the PRs only after the push step has
+  // completed without rejection. Otherwise a lease-rejected push would leave
+  // success comments/labels on PRs whose merges never landed on the branch.
+  if (mergeResult && mergeResult.success.length > 0) {
+    await updateComment(mergeResult.success)
+    await updateLabel(mergeResult.success)
   }
 }
 
@@ -148,16 +193,16 @@ const hasDiff = async (a: string, b: string): Promise<boolean> => {
   )
 }
 
-type Comment = (success: Pull[]) => Promise<void>
-type Label = (success: Pull[]) => Promise<void>
+interface MergeResult {
+  message: string
+  success: Pull[]
+}
 
 const merge = async (
   base: string,
   pulls: Pull[],
-  comment: Comment,
-  label: Label,
   commitDate: string
-): Promise<string> => {
+): Promise<MergeResult> => {
   const success: Pull[] = []
   const failed: Pull[] = []
 
@@ -194,7 +239,7 @@ const merge = async (
     `The following branches failed to merge:\n${failList}`
 
   if (success.length === 0) {
-    return message
+    return {message, success}
   }
 
   await exec(`git reset origin/${base}`)
@@ -210,10 +255,7 @@ const merge = async (
   const rev = await execAndSlurp('git rev-parse HEAD')
   await exec(`git checkout replace/${rev}`)
 
-  await comment(success)
-  await label(success)
-
-  return message
+  return {message, success}
 }
 
 export default autoDev

@@ -31690,7 +31690,7 @@ function error(message, properties = {}) {
  * @param properties optional properties to add to the annotation.
  */
 function warning(message, properties = {}) {
-    issueCommand('warning', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+    command_issueCommand('warning', utils_toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
 /**
  * Adds a notice issue
@@ -36200,37 +36200,76 @@ const autoDev = async () => {
     await exec_exec(`git config user.email "${email}"`);
     await exec_exec(`git config user.name "${user}"`);
     const commitDate = await execAndSlurp(`git show -s --format='%ci' origin/${base}`);
+    // Snapshot origin/${branch} at the start of the run. This SHA becomes the
+    // --force-with-lease expectation for the final push: if a concurrent run
+    // advances origin/${branch} while we are working, our push must abort
+    // instead of overwriting the newer tip with our stale build. Capturing it
+    // immediately before the push would defeat the guard, because the stale
+    // run would simply observe (and adopt) the newer SHA as its expectation.
+    const initialBranchSnapshot = await execAndSlurp(`git ls-remote --heads origin ${branch}`);
+    let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || '';
     await exec_exec(`git checkout ${base}`);
+    let mergeResult;
     if (pulls.length === 0) {
         info('🎉 No Pull Requests found. Nothing to merge.');
     }
     else {
         core_debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`);
-        const message = await autodev_merge(base, pulls, updateComment, updateLabel, commitDate);
-        info(message);
+        mergeResult = await autodev_merge(base, pulls, commitDate);
+        info(mergeResult.message);
     }
     // check if the branch exists, if not create it from base
-    const branchExists = await execAndSlurp(`git ls-remote --heads origin ${branch}`);
-    if (!branchExists) {
+    if (!initialBranchSnapshot) {
         info(`Branch ${branch} does not exist. Creating branch from ${base}.`);
         await exec_exec(`git checkout -b ${branch} ${base}`);
         await exec_exec(`git push -u origin refs/heads/${branch}`);
+        // Branch was just created in this run; the lease should expect the SHA
+        // we just pushed, not an empty ref.
+        initialRemoteSha = (await execAndSlurp(`git rev-parse HEAD`)).trim();
     }
     await exec_exec(`git checkout -B ${branch}`);
     // only push to defined branch if there are changes
     await exec_exec('git fetch');
     if (await hasDiff('HEAD', `origin/${branch}`)) {
-        // ignore any errors
-        await exec_exec(`git push -f -u origin refs/heads/${branch}`, undefined, {
-            ignoreReturnCode: true
+        let pushStderr = '';
+        const code = await exec_exec(`git push --force-with-lease=refs/heads/${branch}:${initialRemoteSha} -u origin refs/heads/${branch}`, undefined, {
+            ignoreReturnCode: true,
+            listeners: {
+                stderr: (data) => {
+                    pushStderr += data.toString();
+                }
+            }
         });
+        if (code !== 0) {
+            const leaseRejected = /stale info|non-fast-forward|\[rejected]/i.test(pushStderr);
+            if (leaseRejected) {
+                // A concurrent run won the race. This is expected behavior, not a
+                // failure: the workflow that pushed last has already produced a fresh
+                // ${branch} tip, and a subsequent AutoDev run will reconcile any
+                // changes that landed afterwards. Surface it as a warning so the run
+                // stays green and we don't spam failure notifications.
+                warning(`push to ${branch} skipped: origin/${branch} moved during this run ` +
+                    `(expected ${initialRemoteSha.substring(0, 7)}). A subsequent AutoDev run will rebuild the branch.`);
+            }
+            else {
+                setFailed(`push to ${branch} failed with exit code ${code}: ${pushStderr.trim() || 'no stderr captured'}`);
+            }
+            return;
+        }
+    }
+    // Comments and labels are written to the PRs only after the push step has
+    // completed without rejection. Otherwise a lease-rejected push would leave
+    // success comments/labels on PRs whose merges never landed on the branch.
+    if (mergeResult && mergeResult.success.length > 0) {
+        await updateComment(mergeResult.success);
+        await updateLabel(mergeResult.success);
     }
 };
 const hasDiff = async (a, b) => {
     return ((await execAndSlurp(`git rev-parse ${a}`)) !==
         (await execAndSlurp(`git rev-parse ${b}`)));
 };
-const autodev_merge = async (base, pulls, comment, label, commitDate) => {
+const autodev_merge = async (base, pulls, commitDate) => {
     const success = [];
     const failed = [];
     for (const pull of pulls) {
@@ -36259,7 +36298,7 @@ const autodev_merge = async (base, pulls, comment, label, commitDate) => {
         `The following branches have been merged:\n${successList}\n\n` +
         `The following branches failed to merge:\n${failList}`;
     if (success.length === 0) {
-        return message;
+        return { message, success };
     }
     await exec_exec(`git reset origin/${base}`);
     await exec_exec('git add -A');
@@ -36268,9 +36307,7 @@ const autodev_merge = async (base, pulls, comment, label, commitDate) => {
     await exec_exec(`git replace --graft HEAD origin/${base}`, success.map(p => `origin/${p.branch}`), overrideDate);
     const rev = await execAndSlurp('git rev-parse HEAD');
     await exec_exec(`git checkout replace/${rev}`);
-    await comment(success);
-    await label(success);
-    return message;
+    return { message, success };
 };
 /* harmony default export */ const autodev = (autoDev);
 
