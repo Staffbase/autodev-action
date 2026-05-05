@@ -36200,6 +36200,14 @@ const autoDev = async () => {
     await exec_exec(`git config user.email "${email}"`);
     await exec_exec(`git config user.name "${user}"`);
     const commitDate = await execAndSlurp(`git show -s --format='%ci' origin/${base}`);
+    // Snapshot origin/${branch} at the start of the run. This SHA becomes the
+    // --force-with-lease expectation for the final push: if a concurrent run
+    // advances origin/${branch} while we are working, our push must abort
+    // instead of overwriting the newer tip with our stale build. Capturing it
+    // immediately before the push would defeat the guard, because the stale
+    // run would simply observe (and adopt) the newer SHA as its expectation.
+    const initialBranchSnapshot = await execAndSlurp(`git ls-remote --heads origin ${branch}`);
+    let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || '';
     await exec_exec(`git checkout ${base}`);
     let mergeResult;
     if (pulls.length === 0) {
@@ -36211,27 +36219,36 @@ const autoDev = async () => {
         info(mergeResult.message);
     }
     // check if the branch exists, if not create it from base
-    const branchExists = await execAndSlurp(`git ls-remote --heads origin ${branch}`);
-    if (!branchExists) {
+    if (!initialBranchSnapshot) {
         info(`Branch ${branch} does not exist. Creating branch from ${base}.`);
         await exec_exec(`git checkout -b ${branch} ${base}`);
         await exec_exec(`git push -u origin refs/heads/${branch}`);
+        // Branch was just created in this run; the lease should expect the SHA
+        // we just pushed, not an empty ref.
+        initialRemoteSha = (await execAndSlurp(`git rev-parse HEAD`)).trim();
     }
     await exec_exec(`git checkout -B ${branch}`);
     // only push to defined branch if there are changes
     await exec_exec('git fetch');
     if (await hasDiff('HEAD', `origin/${branch}`)) {
-        // Capture the remote SHA we just observed and use --force-with-lease so
-        // the push aborts if a concurrent run has already updated origin/${branch}.
-        // Without this guard, two parallel runs that both started from different
-        // origin/${base} states race on `git push -f`: whichever finishes last
-        // wins, and a slower run can overwrite a fresher branch tip with stale
-        // data.
-        const expected = (await execAndSlurp(`git rev-parse origin/${branch}`)).trim();
-        const code = await exec_exec(`git push --force-with-lease=refs/heads/${branch}:${expected} -u origin refs/heads/${branch}`, undefined, { ignoreReturnCode: true });
+        let pushStderr = '';
+        const code = await exec_exec(`git push --force-with-lease=refs/heads/${branch}:${initialRemoteSha} -u origin refs/heads/${branch}`, undefined, {
+            ignoreReturnCode: true,
+            listeners: {
+                stderr: (data) => {
+                    pushStderr += data.toString();
+                }
+            }
+        });
         if (code !== 0) {
-            setFailed(`push to ${branch} aborted: origin/${branch} moved during this run ` +
-                `(expected ${expected.substring(0, 7)}). A subsequent AutoDev run will rebuild the branch.`);
+            const leaseRejected = /stale info|non-fast-forward|\[rejected]/i.test(pushStderr);
+            if (leaseRejected) {
+                setFailed(`push to ${branch} aborted: origin/${branch} moved during this run ` +
+                    `(expected ${initialRemoteSha.substring(0, 7)}). A subsequent AutoDev run will rebuild the branch.`);
+            }
+            else {
+                setFailed(`push to ${branch} failed with exit code ${code}: ${pushStderr.trim() || 'no stderr captured'}`);
+            }
             return;
         }
     }
