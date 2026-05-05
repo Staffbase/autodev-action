@@ -90,7 +90,9 @@ Add a status label if the merge was successful or failed.
 
 # Release
 
-You can create a new release by creating a new tag and bump the version in `package.json.`
+Releases are maintained continuously by [Release Drafter](https://github.com/release-drafter/release-drafter). On every push to `main`, the open draft on the [Releases page](https://github.com/Staffbase/autodev-action/releases) is rebuilt from merged pull requests, with the next version (`vX.Y.Z`) resolved from PR labels (see `.github/release-drafter.yml` for the mapping).
+
+When the draft is ready to ship, open it on the Releases page and click **Publish release**. The tag is created at publish time. Remember to bump the `version` field in `package.json` in a follow-up PR so it matches the published tag.
 
 # Development
 
