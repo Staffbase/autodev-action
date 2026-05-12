@@ -87,6 +87,16 @@ Add a status label if the merge was successful or failed.
     success_label: 'successful'
     failure_label: 'failed'
 ```
+# Permissions
+
+The Github Access Token needs the follwoing permissions:
+
+| Repository Permission | Access |
+| :--- | :--- |
+| **Contents** | Read and write (push to dev) |
+| **Pull requests** | Read and write (list PRs, add/remove labels, comments) |
+| **Issues** | Read and write (PR comments use the issues API) |
+| **Metadata** | Read-only (mandatory, auto-selected) |
 
 # Release
 
