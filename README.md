@@ -106,10 +106,13 @@ When the draft is ready to ship, open it on the Releases page and click **Publis
 
 # Development
 
-Very nice that you want to work on the action. To create a working implementation, you can use the following command to perform all the necessary actions.
+This repository follows Staffbase [ADR 0005 — Unified Tool Management](https://github.com/Staffbase/advisory-space/blob/main/docs/adrs/tools-datamgmt/0005-unified-tool-management.md) and uses [`mise`](https://mise.jdx.dev) as its version manager and task runner. Install `mise` once and the rest comes from `mise.toml`.
 
 ```bash
-pnpm run all
+mise install      # provisions Node and pnpm
+mise run install  # installs dependencies
+mise run all      # format, lint, package, and test
+mise tasks        # list all available tasks with descriptions
 ```
 
 <table>
