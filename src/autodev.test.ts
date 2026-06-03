@@ -176,6 +176,47 @@ The following branches failed to merge:
     expect(setFailed).not.toHaveBeenCalled()
   })
 
+  it('should warn but not fail when GitHub rejects the push with "is at … but expected …" (server-side lease mismatch)', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd.startsWith('git push --force-with-lease')) {
+        opts?.listeners?.stderr?.(
+          Buffer.from(
+            `! [remote rejected] dev -> dev (cannot lock ref 'refs/heads/dev': is at ${REMOTE_HEAD_SHA} but expected ${REMOTE_DEV_SHA})\nerror: failed to push some refs to 'https://github.com/Staffbase/infrastructure'\n`
+          )
+        )
+        return Promise.resolve(1)
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(warning).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `push to dev skipped: origin/dev moved during this run`
+      )
+    )
+    expect(setFailed).not.toHaveBeenCalled()
+  })
+
   it('should setFailed with a generic message when the push fails for non-lease reasons', async () => {
     vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''
