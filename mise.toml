@@ -1,0 +1,31 @@
+[tools]
+node = "24"
+pnpm = "10.33.2"
+
+[tasks.install]
+description = "Install dependencies with a frozen lockfile."
+run = "pnpm install --frozen-lockfile --ignore-scripts"
+
+[tasks.format]
+description = "Format TypeScript sources with Prettier."
+run = "pnpm run format"
+
+[tasks.format-check]
+description = "Check formatting without modifying files."
+run = "pnpm run format-check"
+
+[tasks.lint]
+description = "Run ESLint over src/."
+run = "pnpm run lint"
+
+[tasks.package]
+description = "Build the dist/ artifact via @vercel/ncc."
+run = "pnpm run package"
+
+[tasks.test]
+description = "Run the vitest suite."
+run = "pnpm run test"
+
+[tasks.all]
+description = "Format, lint, package, and test — the default dev workflow."
+run = "pnpm run all"
