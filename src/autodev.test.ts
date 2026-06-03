@@ -176,7 +176,7 @@ The following branches failed to merge:
     expect(setFailed).not.toHaveBeenCalled()
   })
 
-  it('should warn but not fail when the push is rejected server-side with [remote rejected] / cannot lock ref', async () => {
+  it('should warn but not fail when GitHub rejects the push with "is at … but expected …" (server-side lease mismatch)', async () => {
     vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''
     )

@@ -156,7 +156,7 @@ const autoDev = async (): Promise<void> => {
 
     if (code !== 0) {
       const leaseRejected =
-        /stale info|non-fast-forward|\[rejected\]|cannot lock ref/i.test(
+        /stale info|non-fast-forward|\[rejected\]|is at [0-9a-f]+ but expected [0-9a-f]+/i.test(
           pushStderr
         )
       if (leaseRejected) {
