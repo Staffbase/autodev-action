@@ -36241,7 +36241,7 @@ const autoDev = async () => {
             }
         });
         if (code !== 0) {
-            const leaseRejected = /stale info|non-fast-forward|\[rejected\]|cannot lock ref/i.test(pushStderr);
+            const leaseRejected = /stale info|non-fast-forward|\[rejected\]|is at [0-9a-f]+ but expected [0-9a-f]+/i.test(pushStderr);
             if (leaseRejected) {
                 // A concurrent run won the race. This is expected behavior, not a
                 // failure: the workflow that pushed last has already produced a fresh
