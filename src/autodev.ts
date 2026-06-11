@@ -61,18 +61,25 @@ const autoDev = async (): Promise<void> => {
 
   const octokit = createOctokit(token)
 
-  const updateComment = async (successfulPulls: Pull[]): Promise<void> =>
-    comments
-      ? createComments(
-          octokit,
-          owner,
-          repo,
-          pulls,
-          successfulPulls,
-          customSuccessComment,
-          customFailureComment
-        )
-      : Promise.resolve()
+  const runUrl =
+    `https://github.com/${owner}/${repo}/actions/runs/` +
+    (process.env['GITHUB_RUN_ID'] ?? '')
+
+  const updateComment = async (successfulPulls: Pull[]): Promise<void> => {
+    if (!comments) return
+    const failureCommentByPR: Map<number, string> =
+      mergeResult?.failureCommentByPR ?? new Map<number, string>()
+    return createComments(
+      octokit,
+      owner,
+      repo,
+      pulls,
+      successfulPulls,
+      customSuccessComment,
+      customFailureComment,
+      failureCommentByPR
+    )
+  }
 
   const updateLabel = async (successfulPulls: Pull[]): Promise<void> =>
     labels
@@ -122,7 +129,7 @@ const autoDev = async (): Promise<void> => {
     info('🎉 No Pull Requests found. Nothing to merge.')
   } else {
     debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`)
-    mergeResult = await merge(base, pulls, commitDate)
+    mergeResult = await merge(base, pulls, commitDate, runUrl)
     info(mergeResult.message)
   }
 
@@ -181,7 +188,7 @@ const autoDev = async (): Promise<void> => {
   // Comments and labels are written to the PRs only after the push step has
   // completed without rejection. Otherwise a lease-rejected push would leave
   // success comments/labels on PRs whose merges never landed on the branch.
-  if (mergeResult && mergeResult.success.length > 0) {
+  if (mergeResult) {
     await updateComment(mergeResult.success)
     await updateLabel(mergeResult.success)
   }
@@ -197,27 +204,121 @@ const hasDiff = async (a: string, b: string): Promise<boolean> => {
 interface MergeResult {
   message: string
   success: Pull[]
+  failureCommentByPR: Map<number, string>
+}
+
+interface FileAttribution {
+  file: string
+  culpritPRs: number[]
+}
+
+const buildConflictDiagnostics = async (
+  conflictingFiles: string[],
+  mergedPulls: Pull[],
+  baseBranch: string
+): Promise<FileAttribution[]> => {
+  // For each merged PR, get the files it changed relative to base.
+  const prFiles: Array<{number: number; files: Set<string>}> = []
+  for (const pull of mergedPulls) {
+    try {
+      const raw = await execAndSlurp(
+        `git diff --name-only origin/${baseBranch} origin/${pull.branch}`
+      )
+      const files = new Set(
+        raw
+          .split('\n')
+          .map(l => l.trim())
+          .filter(Boolean)
+      )
+      prFiles.push({number: pull.number, files})
+    } catch {
+      // best-effort — skip this PR if we can't get its diff
+    }
+  }
+
+  return conflictingFiles.map(file => ({
+    file,
+    culpritPRs: prFiles.filter(pr => pr.files.has(file)).map(pr => pr.number)
+  }))
+}
+
+const MAX_CONFLICT_FILES = 20
+
+const formatFailureComment = (
+  diagnostics: FileAttribution[],
+  runUrl: string
+): string => {
+  const lines: string[] = []
+  const shown = diagnostics.slice(0, MAX_CONFLICT_FILES)
+  const hidden = diagnostics.length - shown.length
+
+  for (const {file, culpritPRs} of shown) {
+    if (culpritPRs.length > 0) {
+      lines.push(
+        `- \`${file}\` — also modified by ${culpritPRs.map(n => `#${n}`).join(', ')}`
+      )
+    } else {
+      lines.push(`- \`${file}\` — conflicts with \`main\`, rebase needed`)
+    }
+  }
+
+  if (hidden > 0) {
+    lines.push(`- …and ${hidden} more conflicting file(s)`)
+  }
+
+  return (
+    `**Conflicting files:**\n${lines.join('\n')}\n\n` +
+    `[View action run](${runUrl})`
+  )
 }
 
 const merge = async (
   base: string,
   pulls: Pull[],
-  commitDate: string
+  commitDate: string,
+  runUrl: string
 ): Promise<MergeResult> => {
   const success: Pull[] = []
   const failed: Pull[] = []
+  const failureCommentByPR = new Map<number, string>()
 
   for (const pull of pulls) {
     try {
       await exec(`git merge origin/${pull.branch}`)
       success.push(pull)
     } catch (error) {
+      // Capture conflicting paths before aborting so we can report them.
+      let conflictingFiles: string[] = []
+      try {
+        const raw = await execAndSlurp('git diff --name-only --diff-filter=U')
+        conflictingFiles = raw
+          .split('\n')
+          .map(l => l.trim())
+          .filter(Boolean)
+      } catch {
+        // best-effort — if capture fails just continue with empty list
+      }
+
       info(
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         `encountered merge conflicts with branch "${pull.branch}", error: ${error}`
       )
       await exec(`git merge --abort`)
-      failed.push(pull)
+      failed.push({...pull, conflictingFiles})
+
+      try {
+        const diagnostics = await buildConflictDiagnostics(
+          conflictingFiles,
+          success, // only PRs merged so far
+          base
+        )
+        failureCommentByPR.set(
+          pull.number,
+          formatFailureComment(diagnostics, runUrl)
+        )
+      } catch {
+        // best-effort — leave no custom comment, will use default
+      }
     }
   }
 
@@ -240,7 +341,7 @@ const merge = async (
     `The following branches failed to merge:\n${failList}`
 
   if (success.length === 0) {
-    return {message, success}
+    return {message, success, failureCommentByPR}
   }
 
   await exec(`git reset origin/${base}`)
@@ -256,7 +357,7 @@ const merge = async (
   const rev = await execAndSlurp('git rev-parse HEAD')
   await exec(`git checkout replace/${rev}`)
 
-  return {message, success}
+  return {message, success, failureCommentByPR}
 }
 
 export default autoDev

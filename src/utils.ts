@@ -12,6 +12,7 @@ export interface Pull {
   number: number
   branch: string
   labels: (string | undefined)[]
+  conflictingFiles?: string[]
 }
 
 export const getRepoString = (): undefined | string => {
@@ -65,7 +66,8 @@ export const createComments = async (
   pulls: Pull[],
   successfulPulls: Pull[],
   customSuccessComment: string,
-  customFailureComment: string
+  customFailureComment: string,
+  failureCommentByPR: Map<number, string> = new Map()
 ): Promise<void> => {
   info('update comments')
 
@@ -77,11 +79,18 @@ export const createComments = async (
     })
 
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
+    const perPrDiagnostics = failureCommentByPR.get(pull.number)
     const message = successful
       ? appendMagicString(
           customSuccessComment || commentSuccess(owner, repo, successfulPulls)
         )
-      : appendMagicString(customFailureComment || commentFail())
+      : appendMagicString(
+          perPrDiagnostics
+            ? customFailureComment
+              ? `${customFailureComment}\n\n${perPrDiagnostics}`
+              : `🚨 Unable to merge this branch into the dev branch.\n\n${perPrDiagnostics}`
+            : customFailureComment || commentFail()
+        )
 
     const previousComment = comments.data.find(comment =>
       comment.body?.includes(magicString)

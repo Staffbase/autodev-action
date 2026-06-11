@@ -36078,7 +36078,7 @@ This usually means that one of the PRs with a dev label has merge conflicts.
 Please check the logs of the github action.
 `;
 const pullURL = (owner, repo, number) => `https://redirect.github.com/${owner}/${repo}/pull/${number}`;
-const createComments = async (octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment) => {
+const createComments = async (octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment, failureCommentByPR = new Map()) => {
     info('update comments');
     for (const pull of pulls) {
         const comments = await octokit.rest.issues.listComments({
@@ -36087,9 +36087,14 @@ const createComments = async (octokit, owner, repo, pulls, successfulPulls, cust
             issue_number: pull.number
         });
         const successful = successfulPulls.some(sp => sp.branch === pull.branch);
+        const perPrDiagnostics = failureCommentByPR.get(pull.number);
         const message = successful
             ? appendMagicString(customSuccessComment || commentSuccess(owner, repo, successfulPulls))
-            : appendMagicString(customFailureComment || commentFail());
+            : appendMagicString(perPrDiagnostics
+                ? customFailureComment
+                    ? `${customFailureComment}\n\n${perPrDiagnostics}`
+                    : `🚨 Unable to merge this branch into the dev branch.\n\n${perPrDiagnostics}`
+                : customFailureComment || commentFail());
         const previousComment = comments.data.find(comment => comment.body?.includes(magicString));
         if (!previousComment) {
             core_debug(`create comment for pull request ${pull.number}`);
@@ -36181,9 +36186,14 @@ const autoDev = async () => {
     const customSuccessLabel = getInput('success_label') || 'successful';
     const customFailureLabel = getInput('failure_label') || 'failed';
     const octokit = createOctokit(token);
-    const updateComment = async (successfulPulls) => comments
-        ? createComments(octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment)
-        : Promise.resolve();
+    const runUrl = `https://github.com/${owner}/${repo}/actions/runs/` +
+        (process.env['GITHUB_RUN_ID'] ?? '');
+    const updateComment = async (successfulPulls) => {
+        if (!comments)
+            return;
+        const failureCommentByPR = mergeResult?.failureCommentByPR ?? new Map();
+        return createComments(octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment, failureCommentByPR);
+    };
     const updateLabel = async (successfulPulls) => labels
         ? updateLabels(octokit, owner, repo, pulls, successfulPulls, customSuccessLabel, customFailureLabel)
         : Promise.resolve();
@@ -36215,7 +36225,7 @@ const autoDev = async () => {
     }
     else {
         core_debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`);
-        mergeResult = await autodev_merge(base, pulls, commitDate);
+        mergeResult = await autodev_merge(base, pulls, commitDate, runUrl);
         info(mergeResult.message);
     }
     // check if the branch exists, if not create it from base
@@ -36260,7 +36270,7 @@ const autoDev = async () => {
     // Comments and labels are written to the PRs only after the push step has
     // completed without rejection. Otherwise a lease-rejected push would leave
     // success comments/labels on PRs whose merges never landed on the branch.
-    if (mergeResult && mergeResult.success.length > 0) {
+    if (mergeResult) {
         await updateComment(mergeResult.success);
         await updateLabel(mergeResult.success);
     }
@@ -36269,20 +36279,81 @@ const hasDiff = async (a, b) => {
     return ((await execAndSlurp(`git rev-parse ${a}`)) !==
         (await execAndSlurp(`git rev-parse ${b}`)));
 };
-const autodev_merge = async (base, pulls, commitDate) => {
+const buildConflictDiagnostics = async (conflictingFiles, mergedPulls, baseBranch) => {
+    // For each merged PR, get the files it changed relative to base.
+    const prFiles = [];
+    for (const pull of mergedPulls) {
+        try {
+            const raw = await execAndSlurp(`git diff --name-only origin/${baseBranch} origin/${pull.branch}`);
+            const files = new Set(raw
+                .split('\n')
+                .map(l => l.trim())
+                .filter(Boolean));
+            prFiles.push({ number: pull.number, files });
+        }
+        catch {
+            // best-effort — skip this PR if we can't get its diff
+        }
+    }
+    return conflictingFiles.map(file => ({
+        file,
+        culpritPRs: prFiles.filter(pr => pr.files.has(file)).map(pr => pr.number)
+    }));
+};
+const MAX_CONFLICT_FILES = 20;
+const formatFailureComment = (diagnostics, runUrl) => {
+    const lines = [];
+    const shown = diagnostics.slice(0, MAX_CONFLICT_FILES);
+    const hidden = diagnostics.length - shown.length;
+    for (const { file, culpritPRs } of shown) {
+        if (culpritPRs.length > 0) {
+            lines.push(`- \`${file}\` — also modified by ${culpritPRs.map(n => `#${n}`).join(', ')}`);
+        }
+        else {
+            lines.push(`- \`${file}\` — conflicts with \`main\`, rebase needed`);
+        }
+    }
+    if (hidden > 0) {
+        lines.push(`- …and ${hidden} more conflicting file(s)`);
+    }
+    return (`**Conflicting files:**\n${lines.join('\n')}\n\n` +
+        `[View action run](${runUrl})`);
+};
+const autodev_merge = async (base, pulls, commitDate, runUrl) => {
     const success = [];
     const failed = [];
+    const failureCommentByPR = new Map();
     for (const pull of pulls) {
         try {
             await exec_exec(`git merge origin/${pull.branch}`);
             success.push(pull);
         }
         catch (error) {
+            // Capture conflicting paths before aborting so we can report them.
+            let conflictingFiles = [];
+            try {
+                const raw = await execAndSlurp('git diff --name-only --diff-filter=U');
+                conflictingFiles = raw
+                    .split('\n')
+                    .map(l => l.trim())
+                    .filter(Boolean);
+            }
+            catch {
+                // best-effort — if capture fails just continue with empty list
+            }
             info(
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `encountered merge conflicts with branch "${pull.branch}", error: ${error}`);
             await exec_exec(`git merge --abort`);
-            failed.push(pull);
+            failed.push({ ...pull, conflictingFiles });
+            try {
+                const diagnostics = await buildConflictDiagnostics(conflictingFiles, success, // only PRs merged so far
+                base);
+                failureCommentByPR.set(pull.number, formatFailureComment(diagnostics, runUrl));
+            }
+            catch {
+                // best-effort — leave no custom comment, will use default
+            }
         }
     }
     const overrideDate = {
@@ -36298,7 +36369,7 @@ const autodev_merge = async (base, pulls, commitDate) => {
         `The following branches have been merged:\n${successList}\n\n` +
         `The following branches failed to merge:\n${failList}`;
     if (success.length === 0) {
-        return { message, success };
+        return { message, success, failureCommentByPR };
     }
     await exec_exec(`git reset origin/${base}`);
     await exec_exec('git add -A');
@@ -36307,7 +36378,7 @@ const autodev_merge = async (base, pulls, commitDate) => {
     await exec_exec(`git replace --graft HEAD origin/${base}`, success.map(p => `origin/${p.branch}`), overrideDate);
     const rev = await execAndSlurp('git rev-parse HEAD');
     await exec_exec(`git checkout replace/${rev}`);
-    return { message, success };
+    return { message, success, failureCommentByPR };
 };
 /* harmony default export */ const autodev = (autoDev);
 

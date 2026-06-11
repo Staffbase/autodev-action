@@ -342,6 +342,177 @@ The following branches failed to merge:
     expect(labelsSpy).not.toHaveBeenCalled()
   })
 
+  it('should capture conflicting files before aborting a failed merge', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+    )
+
+    // feature-1 succeeds, feature-3 fails with conflicts on two files
+    const execCalls: string[] = []
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      execCalls.push(cmd)
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git merge origin/feature-3') {
+        return Promise.reject(new Error('merge conflict'))
+      }
+      if (cmd === 'git diff --name-only --diff-filter=U') {
+        opts?.listeners?.stdout?.(
+          Buffer.from('kubernetes/ns/file1.yaml\nkubernetes/ns/file2.yaml\n')
+        )
+        return Promise.resolve(0)
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    // diff capture must happen BEFORE merge --abort
+    const captureIdx = execCalls.indexOf('git diff --name-only --diff-filter=U')
+    const abortIdx = execCalls.indexOf('git merge --abort')
+    expect(captureIdx).toBeGreaterThanOrEqual(0)
+    expect(abortIdx).toBeGreaterThan(captureIdx)
+
+    // createComments is called with a non-empty failureCommentByPR map
+    expect(commentsSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      expect.any(String),
+      expect.any(Array),
+      expect.any(Array),
+      expect.any(String),
+      expect.any(String),
+      expect.any(Map)
+    )
+    const mapArg = commentsSpy.mock.calls[0][7] as Map<number, string>
+    expect(mapArg.has(3)).toBe(true) // PR #3 (feature-3) has a failure comment
+  })
+
+  it('attributes conflict to a dev-PR when files overlap', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+    )
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git merge origin/feature-3') {
+        return Promise.reject(new Error('merge conflict'))
+      }
+      if (cmd === 'git diff --name-only --diff-filter=U') {
+        opts?.listeners?.stdout?.(Buffer.from('kubernetes/ns/shared.yaml\n'))
+        return Promise.resolve(0)
+      }
+      // feature-1 (already merged) also touched shared.yaml
+      if (cmd === 'git diff --name-only origin/main origin/feature-1') {
+        opts?.listeners?.stdout?.(Buffer.from('kubernetes/ns/shared.yaml\n'))
+        return Promise.resolve(0)
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    // The failureCommentByPR for PR #3 should mention PR #1 as culprit
+    expect(commentsSpy).toHaveBeenCalled()
+    const mapArg = commentsSpy.mock.calls[0][7] as Map<number, string>
+    expect(mapArg.has(3)).toBe(true)
+    expect(mapArg.get(3)).toContain('#1')
+  })
+
+  it('attributes conflict to main when no dev-PR overlaps', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+    )
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git merge origin/feature-3') {
+        return Promise.reject(new Error('merge conflict'))
+      }
+      if (cmd === 'git diff --name-only --diff-filter=U') {
+        opts?.listeners?.stdout?.(
+          Buffer.from('kubernetes/ns/only-in-feature3.yaml\n')
+        )
+        return Promise.resolve(0)
+      }
+      // feature-1 does NOT touch this file
+      if (cmd === 'git diff --name-only origin/main origin/feature-1') {
+        opts?.listeners?.stdout?.(Buffer.from('kubernetes/ns/unrelated.yaml\n'))
+        return Promise.resolve(0)
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    // The failureCommentByPR for PR #3 should mention rebase
+    expect(commentsSpy).toHaveBeenCalled()
+    const mapArg = commentsSpy.mock.calls[0][7] as Map<number, string>
+    expect(mapArg.has(3)).toBe(true)
+    expect(mapArg.get(3)).toContain('rebase')
+  })
+
+  it('should update labels and comments when all PRs fail to merge', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input =>
+        ({token: 'token', base: 'main', comments: 'true', labels: 'true'})[
+          input
+        ] || ''
+    )
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      // Both dev-labeled PRs fail
+      if (
+        cmd === 'git merge origin/feature-1' ||
+        cmd === 'git merge origin/feature-3'
+      ) {
+        return Promise.reject(new Error('merge conflict'))
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(labelsSpy).toHaveBeenCalled()
+    expect(commentsSpy).toHaveBeenCalled()
+  })
+
   it('should post comments and labels only after a successful push', async () => {
     vi.mocked(getInput).mockImplementation(
       input =>
