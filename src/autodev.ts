@@ -308,10 +308,7 @@ const merge = async (
 
       try {
         if (conflictingFiles.length === 0) {
-          failureCommentByPR.set(
-            pull.number,
-            `[View action run](${runUrl})`
-          )
+          failureCommentByPR.set(pull.number, `[View action run](${runUrl})`)
         } else {
           const diagnostics = await buildConflictDiagnostics(
             conflictingFiles,
