@@ -307,15 +307,22 @@ const merge = async (
       failed.push({...pull, conflictingFiles})
 
       try {
-        const diagnostics = await buildConflictDiagnostics(
-          conflictingFiles,
-          success, // only PRs merged so far
-          base
-        )
-        failureCommentByPR.set(
-          pull.number,
-          formatFailureComment(diagnostics, runUrl)
-        )
+        if (conflictingFiles.length === 0) {
+          failureCommentByPR.set(
+            pull.number,
+            `[View action run](${runUrl})`
+          )
+        } else {
+          const diagnostics = await buildConflictDiagnostics(
+            conflictingFiles,
+            success, // only PRs merged so far
+            base
+          )
+          failureCommentByPR.set(
+            pull.number,
+            formatFailureComment(diagnostics, runUrl)
+          )
+        }
       } catch {
         // best-effort — leave no custom comment, will use default
       }
