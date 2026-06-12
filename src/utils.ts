@@ -14,6 +14,17 @@ export interface Pull {
   labels: (string | undefined)[]
 }
 
+export interface FailedPull extends Pull {
+  /**
+   * Maps each conflicting file path to the PRs that were merged into the
+   * synthetic dev branch earlier in this run and touched that file.
+   *
+   * Empty list for a file means the conflict came from a commit already on
+   * `base` (e.g. another PR merged to main while this one was open).
+   */
+  conflictingFileToPulls: Map<string, Pull[]>
+}
+
 export const getRepoString = (): undefined | string => {
   return process.env['GITHUB_REPOSITORY']
 }
@@ -48,12 +59,48 @@ The following Pull Requests are merged into the dev branch:
 ${pulls.map(pull => `- ${pullURL(owner, repo, pull.number)}`).join('\n')}
 `
 
-const commentFail = (): string =>
-  `
+export const commentFail = (
+  owner: string,
+  repo: string,
+  base: string,
+  failedPull?: FailedPull
+): string => {
+  const generic = `
 🚨 Unable to merge this branch into the dev branch.
 This usually means that one of the PRs with a dev label has merge conflicts.
 Please check the logs of the github action.
 `
+
+  if (!failedPull || failedPull.conflictingFileToPulls.size === 0) {
+    return generic
+  }
+
+  const fileLines = Array.from(failedPull.conflictingFileToPulls.entries())
+    .map(([file, pullers]) => {
+      const suffix =
+        pullers.length > 0
+          ? `\n  - also modified earlier in this run by: ${pullers.map(p => `${pullURL(owner, repo, p.number)} (\`${p.branch}\`)`).join(', ')}`
+          : ''
+      return `- \`${file}\`${suffix}`
+    })
+    .join('\n')
+
+  return `
+🚨 This PR could not be merged into the dev branch because of conflicts.
+
+Other PRs with the \`dev\` label were merged into the dev rebuild first; their
+changes to the file(s) below now conflict with the changes in this PR. The
+order is arbitrary — whichever run-time merge happens first wins. Nothing is
+wrong with the other PR(s); only this PR is excluded from dev until the
+conflict is resolved.
+
+Conflicting files:
+${fileLines}
+
+To deploy this PR to dev, rebase on \`${base}\`, resolve the conflicts, and
+push. The next AutoDev run will pick the rebased branch up.
+`
+}
 
 const pullURL = (owner: string, repo: string, number: number): string =>
   `https://redirect.github.com/${owner}/${repo}/pull/${number}`
@@ -62,8 +109,10 @@ export const createComments = async (
   octokit: OctokitClient,
   owner: string,
   repo: string,
+  base: string,
   pulls: Pull[],
   successfulPulls: Pull[],
+  failedPulls: FailedPull[],
   customSuccessComment: string,
   customFailureComment: string
 ): Promise<void> => {
@@ -77,11 +126,15 @@ export const createComments = async (
     })
 
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
+    const failedPull = failedPulls.find(fp => fp.branch === pull.branch)
+
     const message = successful
       ? appendMagicString(
           customSuccessComment || commentSuccess(owner, repo, successfulPulls)
         )
-      : appendMagicString(customFailureComment || commentFail())
+      : appendMagicString(
+          customFailureComment || commentFail(owner, repo, base, failedPull)
+        )
 
     const previousComment = comments.data.find(comment =>
       comment.body?.includes(magicString)
@@ -117,6 +170,7 @@ export const updateLabels = async (
   repo: string,
   pulls: Pull[],
   successfulPulls: Pull[],
+  failedPulls: FailedPull[],
   customSuccessLabel: string,
   customFailureLabel: string
 ): Promise<void> => {
@@ -124,6 +178,13 @@ export const updateLabels = async (
 
   for (const pull of pulls) {
     const successful = successfulPulls.some(sp => sp.branch === pull.branch)
+    const failed = failedPulls.some(fp => fp.branch === pull.branch)
+    const targetLabel = successful
+      ? customSuccessLabel
+      : failed
+        ? customFailureLabel
+        : undefined
+
     const hasSuccessfulLabel = pull.labels.some(
       label => label === customSuccessLabel
     )
@@ -131,9 +192,13 @@ export const updateLabels = async (
       label => label === customFailureLabel
     )
 
+    if (!targetLabel) {
+      continue
+    }
+
     if (
-      (successful && hasSuccessfulLabel) ||
-      (!successful && hasFailureLabel)
+      (targetLabel === customSuccessLabel && hasSuccessfulLabel) ||
+      (targetLabel === customFailureLabel && hasFailureLabel)
     ) {
       continue
     }
@@ -144,7 +209,7 @@ export const updateLabels = async (
         owner,
         repo,
         issue_number: pull.number,
-        name: successful ? customFailureLabel : customSuccessLabel
+        name: targetLabel === customSuccessLabel ? customFailureLabel : customSuccessLabel
       })
     }
 
@@ -153,7 +218,7 @@ export const updateLabels = async (
       owner,
       repo,
       issue_number: pull.number,
-      labels: [successful ? customSuccessLabel : customFailureLabel]
+      labels: [targetLabel]
     })
   }
 }

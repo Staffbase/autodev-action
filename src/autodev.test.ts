@@ -1,5 +1,63 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
+// ---------------------------------------------------------------------------
+// commentFail rendering
+// ---------------------------------------------------------------------------
+import {commentFail, updateLabels} from './utils'
+import type {FailedPull} from './utils'
+
+describe('commentFail', () => {
+  it('only lists the PR that touched each specific conflicting file, not all PRs that touched any file', () => {
+    // PR #10 touched file-a.yaml only.
+    // PR #20 touched file-b.yaml only.
+    // PR #30 failed, conflicting on both files.
+    // Expected: file-a.yaml suffix mentions only #10; file-b.yaml suffix mentions only #20.
+    const pr10 = {sha: 'aaa', number: 10, branch: 'pr-a', labels: []}
+    const pr20 = {sha: 'bbb', number: 20, branch: 'pr-b', labels: []}
+
+    const failedPull: FailedPull = {
+      sha: 'ccc',
+      number: 30,
+      branch: 'pr-c',
+      labels: [],
+      conflictingFileToPulls: new Map([
+        ['file-a.yaml', [pr10]],
+        ['file-b.yaml', [pr20]]
+      ])
+    }
+
+    const result = commentFail('owner', 'repo', 'main', failedPull)
+
+    // file-a.yaml should mention pr-a but NOT pr-b
+    expect(result).toMatch(/`file-a\.yaml`[\s\S]*pr-a/)
+    expect(result).not.toMatch(/`file-a\.yaml`[\s\S]*?pr-b[\s\S]*?`file-b\.yaml`/)
+
+    // file-b.yaml should mention pr-b but NOT pr-a
+    expect(result).toMatch(/`file-b\.yaml`[\s\S]*pr-b/)
+    expect(result).not.toMatch(/`file-b\.yaml`[\s\S]*?pr-a/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// updateLabels — skipped PR (neither successful nor failed)
+// ---------------------------------------------------------------------------
+describe('updateLabels', () => {
+  it('does not add or remove any label for a PR that is in pulls but neither successful nor failed', async () => {
+    const addLabels = vi.fn()
+    const removeLabel = vi.fn()
+    const octokit = {
+      rest: {issues: {addLabels, removeLabel}}
+    } as unknown as Parameters<typeof updateLabels>[0]
+
+    const pr = {sha: 'aaa', number: 1, branch: 'feature-1', labels: []}
+
+    await updateLabels(octokit, 'owner', 'repo', [pr], [], [], 'successful', 'failed')
+
+    expect(addLabels).not.toHaveBeenCalled()
+    expect(removeLabel).not.toHaveBeenCalled()
+  })
+})
+
 vi.mock('@actions/core', () => ({
   debug: vi.fn(),
   getInput: vi.fn(),
@@ -383,5 +441,242 @@ The following branches failed to merge:
     await autoDev()
 
     expect(callOrder).toEqual(['push', 'comment', 'label'])
+  })
+
+  it('should extract conflicting files from git merge stderr and pass them in failedPulls', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input =>
+        ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+    )
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      // Both merges fail with a conflict on a single file each.
+      if (cmd === 'git merge origin/feature-1') {
+        opts?.listeners?.stderr?.(
+          Buffer.from(
+            'Auto-merging path/to/file.yaml\n' +
+              'CONFLICT (content): Merge conflict in path/to/file.yaml\n' +
+              'Automatic merge failed; fix conflicts and then commit the result.\n'
+          )
+        )
+        return Promise.reject(new Error('merge failed'))
+      }
+      if (cmd === 'git merge origin/feature-3') {
+        opts?.listeners?.stderr?.(
+          Buffer.from(
+            'CONFLICT (add/add): Merge conflict in other/file.yaml\n'
+          )
+        )
+        return Promise.reject(new Error('merge failed'))
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(commentsSpy).toHaveBeenCalled()
+    const failedArg = commentsSpy.mock.calls[0]?.[6]
+    expect(failedArg).toEqual([
+      expect.objectContaining({
+        branch: 'feature-1',
+        conflictingFileToPulls: new Map([['path/to/file.yaml', []]])
+      }),
+      expect.objectContaining({
+        branch: 'feature-3',
+        conflictingFileToPulls: new Map([['other/file.yaml', []]])
+      })
+    ])
+  })
+
+  it('should point the failing PR at the dev-labeled PR that was merged into dev first', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input =>
+        ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+    )
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      // feature-1 is merged into the dev rebuild first and touches the file.
+      // From its perspective everything is fine; it ends up on dev.
+      if (cmd === 'git merge origin/feature-1') {
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git diff-tree --no-commit-id --name-only -r HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from('path/to/file.yaml\n'))
+        return Promise.resolve(0)
+      }
+      // feature-3's merge attempt then fails because feature-1's changes to
+      // the same file are already in the working tree. feature-3 is excluded
+      // from this dev rebuild; feature-1 stays.
+      if (cmd === 'git merge origin/feature-3') {
+        opts?.listeners?.stderr?.(
+          Buffer.from(
+            'CONFLICT (content): Merge conflict in path/to/file.yaml\n'
+          )
+        )
+        return Promise.reject(new Error('merge failed'))
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(commentsSpy).toHaveBeenCalled()
+    const failedArg = commentsSpy.mock.calls[0]?.[6]
+    expect(failedArg).toEqual([
+      expect.objectContaining({
+        branch: 'feature-3',
+        conflictingFileToPulls: new Map([
+          ['path/to/file.yaml', [expect.objectContaining({branch: 'feature-1', number: 1})]]
+        ])
+      })
+    ])
+  })
+
+  // Two PRs fail in the same run for different reasons:
+  //
+  // Merge order:
+  //   pr-touches-shared-file (#10) ✓  — merges first, touches shared/config.yaml
+  //   pr-conflict-with-main  (#11) ✗  — conflicts on service/deployment.yaml;
+  //                                      no prior dev PR touched that file,
+  //                                      so the conflict is against main
+  //   pr-conflict-with-pr    (#12) ✗  — conflicts on shared/config.yaml;
+  //                                      pr-touches-shared-file merged first
+  //                                      and owns that file → pointer populated
+  it('two PRs fail in one run: one conflict against main (no pointer), one conflict against a prior dev PR (pointer)', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input =>
+        ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+    )
+
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([
+      {
+        number: 10,
+        labels: [{name: 'dev'}],
+        head: {
+          ref: 'pr-touches-shared-file',
+          sha: 'aaa0000000000000000000000000000000000000'
+        }
+      },
+      {
+        number: 11,
+        labels: [{name: 'dev'}],
+        head: {
+          ref: 'pr-conflict-with-main',
+          sha: 'bbb0000000000000000000000000000000000000'
+        }
+      },
+      {
+        number: 12,
+        labels: [{name: 'dev'}],
+        head: {
+          ref: 'pr-conflict-with-pr',
+          sha: 'ccc0000000000000000000000000000000000000'
+        }
+      }
+    ] as PullsListResponseData)
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+
+      // pr-touches-shared-file merges first and touches shared/config.yaml.
+      if (cmd === 'git merge origin/pr-touches-shared-file') {
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git diff-tree --no-commit-id --name-only -r HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from('shared/config.yaml\n'))
+        return Promise.resolve(0)
+      }
+
+      // pr-conflict-with-main conflicts on service/deployment.yaml.
+      // No prior dev PR in this run touched that file — conflict is against main.
+      // → mergedFirstInThisRun must be empty.
+      if (cmd === 'git merge origin/pr-conflict-with-main') {
+        opts?.listeners?.stderr?.(
+          Buffer.from(
+            'CONFLICT (content): Merge conflict in service/deployment.yaml\n' +
+              'Automatic merge failed; fix conflicts and then commit the result.\n'
+          )
+        )
+        return Promise.reject(new Error('merge failed'))
+      }
+
+      // pr-conflict-with-pr conflicts on shared/config.yaml.
+      // pr-touches-shared-file merged first and owns that file.
+      // → mergedFirstInThisRun must point at pr-touches-shared-file (#10).
+      if (cmd === 'git merge origin/pr-conflict-with-pr') {
+        opts?.listeners?.stderr?.(
+          Buffer.from(
+            'CONFLICT (content): Merge conflict in shared/config.yaml\n' +
+              'Automatic merge failed; fix conflicts and then commit the result.\n'
+          )
+        )
+        return Promise.reject(new Error('merge failed'))
+      }
+
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(commentsSpy).toHaveBeenCalled()
+    const failedArg = commentsSpy.mock.calls[0]?.[6]
+
+    expect(failedArg).toEqual([
+      // pr-conflict-with-main: no prior dev PR touched service/deployment.yaml.
+      expect.objectContaining({
+        branch: 'pr-conflict-with-main',
+        number: 11,
+        conflictingFileToPulls: new Map([['service/deployment.yaml', []]])
+      }),
+      // pr-conflict-with-pr: pr-touches-shared-file (#10) merged first.
+      expect.objectContaining({
+        branch: 'pr-conflict-with-pr',
+        number: 12,
+        conflictingFileToPulls: new Map([
+          ['shared/config.yaml', [expect.objectContaining({branch: 'pr-touches-shared-file', number: 10})]]
+        ])
+      })
+    ])
   })
 })
