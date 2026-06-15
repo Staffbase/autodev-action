@@ -80,7 +80,7 @@ Please check the logs of the github action.
       const suffix =
         pullers.length > 0
           ? `\n  - also modified earlier in this run by: ${pullers.map(p => `${pullURL(owner, repo, p.number)} (\`${p.branch}\`)`).join(', ')}`
-          : ''
+          : `\n  - conflicts with \`${base}\` — rebase this PR onto \`${base}\` to resolve`
       return `- \`${file}\`${suffix}`
     })
     .join('\n')
@@ -88,11 +88,10 @@ Please check the logs of the github action.
   return `
 🚨 This PR could not be merged into the dev branch because of conflicts.
 
-Other PRs with the \`dev\` label were merged into the dev rebuild first; their
-changes to the file(s) below now conflict with the changes in this PR. The
-order is arbitrary — whichever run-time merge happens first wins. Nothing is
-wrong with the other PR(s); only this PR is excluded from dev until the
-conflict is resolved.
+The file(s) below conflict with changes already present in the dev rebuild.
+Where another dev-labeled PR is listed, it was merged into dev first (the
+order is arbitrary — whichever merge runs first wins; nothing is wrong with
+that PR). Where no PR is listed, the conflict is against \`${base}\` itself.
 
 Conflicting files:
 ${fileLines}

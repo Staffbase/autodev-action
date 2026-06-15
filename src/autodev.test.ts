@@ -1,10 +1,11 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
+import type {FailedPull} from './utils'
+import {commentFail, updateLabels} from './utils'
+
 // ---------------------------------------------------------------------------
 // commentFail rendering
 // ---------------------------------------------------------------------------
-import {commentFail, updateLabels} from './utils'
-import type {FailedPull} from './utils'
 
 describe('commentFail', () => {
   it('only lists the PR that touched each specific conflicting file, not all PRs that touched any file', () => {
@@ -35,6 +36,43 @@ describe('commentFail', () => {
     // file-b.yaml should mention pr-b but NOT pr-a
     expect(result).toMatch(/`file-b\.yaml`[\s\S]*pr-b/)
     expect(result).not.toMatch(/`file-b\.yaml`[\s\S]*?pr-a/)
+  })
+
+  it('shows rebase instruction for files that conflict with base (no culprit PR)', () => {
+    const failedPull: FailedPull = {
+      sha: 'ccc',
+      number: 30,
+      branch: 'pr-c',
+      labels: [],
+      conflictingFileToPulls: new Map([['stale-file.yaml', []]])
+    }
+
+    const result = commentFail('owner', 'repo', 'main', failedPull)
+
+    expect(result).toMatch(/`stale-file\.yaml`[\s\S]*rebase/)
+    expect(result).toMatch(/`main`/)
+    // should NOT claim another PR caused it
+    expect(result).not.toMatch(/also modified/)
+  })
+
+  it('handles mixed case: one file blamed on a PR, one on base', () => {
+    const pr10 = {sha: 'aaa', number: 10, branch: 'pr-a', labels: []}
+
+    const failedPull: FailedPull = {
+      sha: 'ccc',
+      number: 30,
+      branch: 'pr-c',
+      labels: [],
+      conflictingFileToPulls: new Map([
+        ['pr-owned.yaml', [pr10]],
+        ['base-owned.yaml', []]
+      ])
+    }
+
+    const result = commentFail('owner', 'repo', 'main', failedPull)
+
+    expect(result).toMatch(/`pr-owned\.yaml`[\s\S]*pr-a/)
+    expect(result).toMatch(/`base-owned\.yaml`[\s\S]*rebase/)
   })
 })
 
