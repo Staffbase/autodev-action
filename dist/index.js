@@ -36362,6 +36362,7 @@ const autodev_merge = async (base, pulls, commitDate) => {
     const fileToPulls = new Map();
     for (const pull of pulls) {
         let mergeOutput = '';
+        const preMergeHead = await execAndSlurp('git rev-parse HEAD');
         try {
             await exec_exec(`git merge origin/${pull.branch}`, undefined, {
                 listeners: {
@@ -36392,15 +36393,19 @@ const autodev_merge = async (base, pulls, commitDate) => {
             continue;
         }
         // Record which files this PR's merge commit touched, so a later failing
-        // merge can point at this PR as "merged ahead of you in this run." The
-        // diff is taken against the previous HEAD (the parent of the just-
-        // created merge commit), capturing exactly the files this PR contributed.
+        // merge can point at this PR as "merged ahead of you in this run."
+        //
+        // We diff pre-merge HEAD → post-merge HEAD rather than using
+        // `diff-tree --no-commit-id HEAD` because fast-forward merges don't
+        // produce a merge commit — HEAD simply moves to the tip of the incoming
+        // branch, and diff-tree would show that commit's diff against its own
+        // parent, not the files that changed vs where we were before the merge.
         //
         // -M detects renames; --name-status gives tab-separated status + paths
-        // (e.g. "R100\told.yaml\tnew.yaml"). Both the old and new path are
-        // indexed so a rename/rename conflict — where the CONFLICT line names
-        // the original path — can still find the PR that touched it.
-        const nameStatus = await execAndSlurp(`git diff-tree --no-commit-id -r -M --name-status HEAD`);
+        // (e.g. "R100\told.yaml\tnew.yaml"). Both old and new paths are indexed
+        // so a rename/rename conflict — where the CONFLICT line names the
+        // original path — can still find the PR that touched it.
+        const nameStatus = await execAndSlurp(`git diff --name-status -M ${preMergeHead.trim()} HEAD`);
         for (const line of nameStatus.split('\n')) {
             const trimmed = line.trim();
             if (!trimmed)

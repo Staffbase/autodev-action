@@ -573,7 +573,7 @@ The following branches failed to merge:
       if (cmd === 'git merge origin/feature-1') {
         return Promise.resolve(0)
       }
-      if (cmd === 'git diff-tree --no-commit-id -r -M --name-status HEAD') {
+      if (cmd === `git diff --name-status -M ${REMOTE_HEAD_SHA} HEAD`) {
         opts?.listeners?.stdout?.(Buffer.from('M\tpath/to/file.yaml\n'))
         return Promise.resolve(0)
       }
@@ -670,7 +670,7 @@ The following branches failed to merge:
       if (cmd === 'git merge origin/pr-touches-shared-file') {
         return Promise.resolve(0)
       }
-      if (cmd === 'git diff-tree --no-commit-id -r -M --name-status HEAD') {
+      if (cmd === `git diff --name-status -M ${REMOTE_HEAD_SHA} HEAD`) {
         opts?.listeners?.stdout?.(Buffer.from('M\tshared/config.yaml\n'))
         return Promise.resolve(0)
       }
