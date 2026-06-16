@@ -208,7 +208,10 @@ export const updateLabels = async (
         owner,
         repo,
         issue_number: pull.number,
-        name: targetLabel === customSuccessLabel ? customFailureLabel : customSuccessLabel
+        name:
+          targetLabel === customSuccessLabel
+            ? customFailureLabel
+            : customSuccessLabel
       })
     }
 

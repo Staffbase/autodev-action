@@ -31,7 +31,9 @@ describe('commentFail', () => {
 
     // file-a.yaml should mention pr-a but NOT pr-b
     expect(result).toMatch(/`file-a\.yaml`[\s\S]*pr-a/)
-    expect(result).not.toMatch(/`file-a\.yaml`[\s\S]*?pr-b[\s\S]*?`file-b\.yaml`/)
+    expect(result).not.toMatch(
+      /`file-a\.yaml`[\s\S]*?pr-b[\s\S]*?`file-b\.yaml`/
+    )
 
     // file-b.yaml should mention pr-b but NOT pr-a
     expect(result).toMatch(/`file-b\.yaml`[\s\S]*pr-b/)
@@ -89,7 +91,16 @@ describe('updateLabels', () => {
 
     const pr = {sha: 'aaa', number: 1, branch: 'feature-1', labels: []}
 
-    await updateLabels(octokit, 'owner', 'repo', [pr], [], [], 'successful', 'failed')
+    await updateLabels(
+      octokit,
+      'owner',
+      'repo',
+      [pr],
+      [],
+      [],
+      'successful',
+      'failed'
+    )
 
     expect(addLabels).not.toHaveBeenCalled()
     expect(removeLabel).not.toHaveBeenCalled()
@@ -483,8 +494,7 @@ The following branches failed to merge:
 
   it('should extract conflicting files from git merge stderr and pass them in failedPulls', async () => {
     vi.mocked(getInput).mockImplementation(
-      input =>
-        ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+      input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
     )
 
     vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
@@ -515,9 +525,7 @@ The following branches failed to merge:
       }
       if (cmd === 'git merge origin/feature-3') {
         opts?.listeners?.stderr?.(
-          Buffer.from(
-            'CONFLICT (add/add): Merge conflict in other/file.yaml\n'
-          )
+          Buffer.from('CONFLICT (add/add): Merge conflict in other/file.yaml\n')
         )
         return Promise.reject(new Error('merge failed'))
       }
@@ -542,8 +550,7 @@ The following branches failed to merge:
 
   it('should point the failing PR at the dev-labeled PR that was merged into dev first', async () => {
     vi.mocked(getInput).mockImplementation(
-      input =>
-        ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+      input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
     )
 
     vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
@@ -566,8 +573,8 @@ The following branches failed to merge:
       if (cmd === 'git merge origin/feature-1') {
         return Promise.resolve(0)
       }
-      if (cmd === 'git diff-tree --no-commit-id --name-only -r HEAD') {
-        opts?.listeners?.stdout?.(Buffer.from('path/to/file.yaml\n'))
+      if (cmd === 'git diff-tree --no-commit-id -r -M --name-status HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from('M\tpath/to/file.yaml\n'))
         return Promise.resolve(0)
       }
       // feature-3's merge attempt then fails because feature-1's changes to
@@ -592,7 +599,10 @@ The following branches failed to merge:
       expect.objectContaining({
         branch: 'feature-3',
         conflictingFileToPulls: new Map([
-          ['path/to/file.yaml', [expect.objectContaining({branch: 'feature-1', number: 1})]]
+          [
+            'path/to/file.yaml',
+            [expect.objectContaining({branch: 'feature-1', number: 1})]
+          ]
         ])
       })
     ])
@@ -610,8 +620,7 @@ The following branches failed to merge:
   //                                      and owns that file → pointer populated
   it('two PRs fail in one run: one conflict against main (no pointer), one conflict against a prior dev PR (pointer)', async () => {
     vi.mocked(getInput).mockImplementation(
-      input =>
-        ({token: 'token', base: 'main', comments: 'true'})[input] || ''
+      input => ({token: 'token', base: 'main', comments: 'true'})[input] || ''
     )
 
     vi.spyOn(utils, 'fetchPulls').mockResolvedValue([
@@ -661,8 +670,8 @@ The following branches failed to merge:
       if (cmd === 'git merge origin/pr-touches-shared-file') {
         return Promise.resolve(0)
       }
-      if (cmd === 'git diff-tree --no-commit-id --name-only -r HEAD') {
-        opts?.listeners?.stdout?.(Buffer.from('shared/config.yaml\n'))
+      if (cmd === 'git diff-tree --no-commit-id -r -M --name-status HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from('M\tshared/config.yaml\n'))
         return Promise.resolve(0)
       }
 
@@ -712,7 +721,15 @@ The following branches failed to merge:
         branch: 'pr-conflict-with-pr',
         number: 12,
         conflictingFileToPulls: new Map([
-          ['shared/config.yaml', [expect.objectContaining({branch: 'pr-touches-shared-file', number: 10})]]
+          [
+            'shared/config.yaml',
+            [
+              expect.objectContaining({
+                branch: 'pr-touches-shared-file',
+                number: 10
+              })
+            ]
+          ]
         ])
       })
     ])
