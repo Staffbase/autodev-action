@@ -36165,7 +36165,9 @@ const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, failed
                 owner,
                 repo,
                 issue_number: pull.number,
-                name: targetLabel === customSuccessLabel ? customFailureLabel : customSuccessLabel
+                name: targetLabel === customSuccessLabel
+                    ? customFailureLabel
+                    : customSuccessLabel
             });
         }
         core_debug(`add label to pull request ${pull.number}`);
@@ -36313,7 +36315,7 @@ const hasDiff = async (a, b) => {
         (await execAndSlurp(`git rev-parse ${b}`)));
 };
 /**
- * Parse conflicting file paths from git merge stderr. git uses different line
+ * Parse conflicting file paths from git merge output. git uses different line
  * formats depending on the conflict type; each is matched specifically:
  *
  *   content / add-add:  "CONFLICT (...): Merge conflict in <path>"
@@ -36362,12 +36364,15 @@ const autodev_merge = async (base, pulls, commitDate) => {
     // comment lists the file with no PR pointer.
     const fileToPulls = new Map();
     for (const pull of pulls) {
-        let mergeStderr = '';
+        let mergeOutput = '';
         try {
             await exec_exec(`git merge origin/${pull.branch}`, undefined, {
                 listeners: {
+                    stdout: (data) => {
+                        mergeOutput += data.toString();
+                    },
                     stderr: (data) => {
-                        mergeStderr += data.toString();
+                        mergeOutput += data.toString();
                     }
                 }
             });
@@ -36377,7 +36382,7 @@ const autodev_merge = async (base, pulls, commitDate) => {
             info(
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `encountered merge conflicts with branch "${pull.branch}", error: ${error}`);
-            const conflictFiles = extractConflictFiles(mergeStderr);
+            const conflictFiles = extractConflictFiles(mergeOutput);
             const conflictingFileToPulls = new Map();
             for (const file of conflictFiles) {
                 conflictingFileToPulls.set(file, fileToPulls.get(file) ?? []);

@@ -216,7 +216,7 @@ interface MergeResult {
 }
 
 /**
- * Parse conflicting file paths from git merge stderr. git uses different line
+ * Parse conflicting file paths from git merge output. git uses different line
  * formats depending on the conflict type; each is matched specifically:
  *
  *   content / add-add:  "CONFLICT (...): Merge conflict in <path>"
@@ -233,13 +233,19 @@ interface MergeResult {
 const extractConflictFiles = (stderr: string): string[] => {
   const files = new Set<string>()
 
-  for (const m of stderr.matchAll(/^CONFLICT \([^)]*\): Merge conflict in (.+)$/gm)) {
+  for (const m of stderr.matchAll(
+    /^CONFLICT \([^)]*\): Merge conflict in (.+)$/gm
+  )) {
     files.add(m[1].trim())
   }
-  for (const m of stderr.matchAll(/^CONFLICT \(modify\/delete\): (.+?) deleted in /gm)) {
+  for (const m of stderr.matchAll(
+    /^CONFLICT \(modify\/delete\): (.+?) deleted in /gm
+  )) {
     files.add(m[1].trim())
   }
-  for (const m of stderr.matchAll(/^CONFLICT \(delete\/modify\): (.+?) deleted in /gm)) {
+  for (const m of stderr.matchAll(
+    /^CONFLICT \(delete\/modify\): (.+?) deleted in /gm
+  )) {
     files.add(m[1].trim())
   }
   for (const m of stderr.matchAll(
@@ -276,12 +282,15 @@ const merge = async (
   const fileToPulls = new Map<string, Pull[]>()
 
   for (const pull of pulls) {
-    let mergeStderr = ''
+    let mergeOutput = ''
     try {
       await exec(`git merge origin/${pull.branch}`, undefined, {
         listeners: {
+          stdout: (data: Buffer) => {
+            mergeOutput += data.toString()
+          },
           stderr: (data: Buffer) => {
-            mergeStderr += data.toString()
+            mergeOutput += data.toString()
           }
         }
       })
@@ -292,7 +301,7 @@ const merge = async (
         `encountered merge conflicts with branch "${pull.branch}", error: ${error}`
       )
 
-      const conflictFiles = extractConflictFiles(mergeStderr)
+      const conflictFiles = extractConflictFiles(mergeOutput)
       const conflictingFileToPulls = new Map<string, Pull[]>()
       for (const file of conflictFiles) {
         conflictingFileToPulls.set(file, fileToPulls.get(file) ?? [])
