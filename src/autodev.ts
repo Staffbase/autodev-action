@@ -2,7 +2,7 @@ import {debug, getInput, info, setFailed, warning} from '@actions/core'
 import type {ExecOptions} from '@actions/exec'
 import {exec} from '@actions/exec'
 
-import type {Pull} from './utils'
+import type {FailedPull, Pull} from './utils'
 import {
   createComments,
   createOctokit,
@@ -61,20 +61,28 @@ const autoDev = async (): Promise<void> => {
 
   const octokit = createOctokit(token)
 
-  const updateComment = async (successfulPulls: Pull[]): Promise<void> =>
+  const updateComment = async (
+    successfulPulls: Pull[],
+    failedPulls: FailedPull[]
+  ): Promise<void> =>
     comments
       ? createComments(
           octokit,
           owner,
           repo,
+          base,
           pulls,
           successfulPulls,
+          failedPulls,
           customSuccessComment,
           customFailureComment
         )
       : Promise.resolve()
 
-  const updateLabel = async (successfulPulls: Pull[]): Promise<void> =>
+  const updateLabel = async (
+    successfulPulls: Pull[],
+    failedPulls: FailedPull[]
+  ): Promise<void> =>
     labels
       ? updateLabels(
           octokit,
@@ -82,6 +90,7 @@ const autoDev = async (): Promise<void> => {
           repo,
           pulls,
           successfulPulls,
+          failedPulls,
           customSuccessLabel,
           customFailureLabel
         )
@@ -181,9 +190,15 @@ const autoDev = async (): Promise<void> => {
   // Comments and labels are written to the PRs only after the push step has
   // completed without rejection. Otherwise a lease-rejected push would leave
   // success comments/labels on PRs whose merges never landed on the branch.
-  if (mergeResult && mergeResult.success.length > 0) {
-    await updateComment(mergeResult.success)
-    await updateLabel(mergeResult.success)
+  //
+  // Failed-merge comments are also gated behind a successful push: if the
+  // push was rejected, the failed PR will be retried on the next run and any
+  // "you have a conflict" comment posted now might be wrong by then (e.g.
+  // the PR that was merged ahead of it could land on main in the meantime,
+  // or a different run-order could let this PR through cleanly).
+  if (mergeResult) {
+    await updateComment(mergeResult.success, mergeResult.failed)
+    await updateLabel(mergeResult.success, mergeResult.failed)
   }
 }
 
@@ -197,6 +212,45 @@ const hasDiff = async (a: string, b: string): Promise<boolean> => {
 interface MergeResult {
   message: string
   success: Pull[]
+  failed: FailedPull[]
+}
+
+/**
+ * Parse conflicting file paths from git merge output. git uses different line
+ * formats depending on the conflict type; each is matched specifically:
+ *
+ *   content / add-add:  "CONFLICT (...): Merge conflict in <path>"
+ *   modify/delete:      "CONFLICT (modify/delete): <path> deleted in ..."
+ *                       Note: git always emits "modify/delete" regardless of
+ *                       which side deleted; there is no "delete/modify" variant.
+ *   rename/rename:      "CONFLICT (rename/rename): <orig> renamed to <a> in ... and to <b> in ..."
+ *                       → the original path is extracted; it matches the old
+ *                         name that diff-tree records in fileToPulls.
+ *
+ * A single merge attempt produces at most one CONFLICT line per file (verified
+ * against real GHA runs), so dedup is not strictly needed but is kept as cheap
+ * insurance against future git versions or unexpected multi-hunk output.
+ */
+const extractConflictFiles = (output: string): string[] => {
+  const files = new Set<string>()
+
+  for (const m of output.matchAll(
+    /^CONFLICT \([^)]*\): Merge conflict in (.+)$/gm
+  )) {
+    files.add(m[1].trim())
+  }
+  for (const m of output.matchAll(
+    /^CONFLICT \(modify\/delete\): (.+?) deleted in /gm
+  )) {
+    files.add(m[1].trim())
+  }
+  for (const m of output.matchAll(
+    /^CONFLICT \(rename\/rename\): (\S+) renamed to /gm
+  )) {
+    files.add(m[1].trim())
+  }
+
+  return Array.from(files)
 }
 
 const merge = async (
@@ -205,19 +259,90 @@ const merge = async (
   commitDate: string
 ): Promise<MergeResult> => {
   const success: Pull[] = []
-  const failed: Pull[] = []
+  const failed: FailedPull[] = []
+
+  // file path -> all dev-labeled PRs that successfully merged into the synthetic
+  // dev branch *earlier in this loop* and touched that file. The map answers
+  // the question a later failing PR needs answered: "which PRs were merged into
+  // dev ahead of me and now occupy the file I'm trying to change?"
+  //
+  // Important: this is NOT mutual blame. PRs that merged first are fine and
+  // stay in dev; only the PR whose merge attempt fails is excluded from this
+  // dev rebuild. The "winner" is purely temporal — whichever git merge ran
+  // first. See commentFail in utils.ts for the user-facing wording.
+  //
+  // Conflicts caused by commits already on `base` (e.g. another PR merged to
+  // main while this one was open) leave the list empty for that file, and the
+  // comment lists the file with no PR pointer.
+  const fileToPulls = new Map<string, Pull[]>()
 
   for (const pull of pulls) {
+    let mergeOutput = ''
+    const preMergeHead = await execAndSlurp('git rev-parse HEAD')
     try {
-      await exec(`git merge origin/${pull.branch}`)
+      await exec(`git merge origin/${pull.branch}`, undefined, {
+        listeners: {
+          stdout: (data: Buffer) => {
+            mergeOutput += data.toString()
+          },
+          stderr: (data: Buffer) => {
+            mergeOutput += data.toString()
+          }
+        }
+      })
       success.push(pull)
     } catch (error) {
       info(
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         `encountered merge conflicts with branch "${pull.branch}", error: ${error}`
       )
+
+      const conflictFiles = extractConflictFiles(mergeOutput)
+      const conflictingFileToPulls = new Map<string, Pull[]>()
+      for (const file of conflictFiles) {
+        conflictingFileToPulls.set(file, fileToPulls.get(file) ?? [])
+      }
+
       await exec(`git merge --abort`)
-      failed.push(pull)
+      failed.push({
+        ...pull,
+        conflictingFileToPulls
+      })
+      continue
+    }
+
+    // Record which files this PR's merge commit touched, so a later failing
+    // merge can point at this PR as "merged ahead of you in this run."
+    //
+    // We diff pre-merge HEAD → post-merge HEAD rather than using
+    // `diff-tree --no-commit-id HEAD` because fast-forward merges don't
+    // produce a merge commit — HEAD simply moves to the tip of the incoming
+    // branch, and diff-tree would show that commit's diff against its own
+    // parent, not the files that changed vs where we were before the merge.
+    //
+    // -M detects renames; --name-status gives tab-separated status + paths
+    // (e.g. "R100\told.yaml\tnew.yaml"). Both old and new paths are indexed
+    // so a rename/rename conflict — where the CONFLICT line names the
+    // original path — can still find the PR that touched it.
+    const nameStatus = await execAndSlurp(
+      `git diff --name-status -M ${preMergeHead.trim()} HEAD`
+    )
+    for (const line of nameStatus.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      const parts = trimmed.split('\t')
+      const status = parts[0]
+      if (status.startsWith('R') && parts[1] && parts[2]) {
+        // Rename: index both old name (matches rename/rename CONFLICT line)
+        // and new name (matches content/modify conflicts on the renamed path).
+        for (const path of [parts[1], parts[2]]) {
+          const existing = fileToPulls.get(path) ?? []
+          fileToPulls.set(path, [...existing, pull])
+        }
+      } else if (parts[1]) {
+        const existing = fileToPulls.get(parts[1]) ?? []
+        fileToPulls.set(parts[1], [...existing, pull])
+      }
     }
   }
 
@@ -240,7 +365,7 @@ const merge = async (
     `The following branches failed to merge:\n${failList}`
 
   if (success.length === 0) {
-    return {message, success}
+    return {message, success, failed}
   }
 
   await exec(`git reset origin/${base}`)
@@ -256,7 +381,7 @@ const merge = async (
   const rev = await execAndSlurp('git rev-parse HEAD')
   await exec(`git checkout replace/${rev}`)
 
-  return {message, success}
+  return {message, success, failed}
 }
 
 export default autoDev

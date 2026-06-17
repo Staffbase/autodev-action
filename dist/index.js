@@ -36072,13 +36072,40 @@ It can take up to a few minutes until the changes are rolled out to the dev syst
 The following Pull Requests are merged into the dev branch:
 ${pulls.map(pull => `- ${pullURL(owner, repo, pull.number)}`).join('\n')}
 `;
-const commentFail = () => `
+const commentFail = (owner, repo, base, failedPull) => {
+    const generic = `
 🚨 Unable to merge this branch into the dev branch.
 This usually means that one of the PRs with a dev label has merge conflicts.
 Please check the logs of the github action.
 `;
+    if (!failedPull || failedPull.conflictingFileToPulls.size === 0) {
+        return generic;
+    }
+    const fileLines = Array.from(failedPull.conflictingFileToPulls.entries())
+        .map(([file, pullers]) => {
+        const suffix = pullers.length > 0
+            ? `\n  - also modified earlier in this run by: ${pullers.map(p => `${pullURL(owner, repo, p.number)} (\`${p.branch}\`)`).join(', ')}`
+            : `\n  - conflicts with \`${base}\` — rebase this PR onto \`${base}\` to resolve`;
+        return `- \`${file}\`${suffix}`;
+    })
+        .join('\n');
+    return `
+🚨 This PR could not be merged into the dev branch because of conflicts.
+
+The file(s) below conflict with changes already present in the dev rebuild.
+Where another dev-labeled PR is listed, it was merged into dev first (the
+order is arbitrary — whichever merge runs first wins; nothing is wrong with
+that PR). Where no PR is listed, the conflict is against \`${base}\` itself.
+
+Conflicting files:
+${fileLines}
+
+To deploy this PR to dev, rebase on \`${base}\`, resolve the conflicts, and
+push. The next AutoDev run will pick the rebased branch up.
+`;
+};
 const pullURL = (owner, repo, number) => `https://redirect.github.com/${owner}/${repo}/pull/${number}`;
-const createComments = async (octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment) => {
+const createComments = async (octokit, owner, repo, base, pulls, successfulPulls, failedPulls, customSuccessComment, customFailureComment) => {
     info('update comments');
     for (const pull of pulls) {
         const comments = await octokit.rest.issues.listComments({
@@ -36087,9 +36114,10 @@ const createComments = async (octokit, owner, repo, pulls, successfulPulls, cust
             issue_number: pull.number
         });
         const successful = successfulPulls.some(sp => sp.branch === pull.branch);
+        const failedPull = failedPulls.find(fp => fp.branch === pull.branch);
         const message = successful
             ? appendMagicString(customSuccessComment || commentSuccess(owner, repo, successfulPulls))
-            : appendMagicString(customFailureComment || commentFail());
+            : appendMagicString(customFailureComment || commentFail(owner, repo, base, failedPull));
         const previousComment = comments.data.find(comment => comment.body?.includes(magicString));
         if (!previousComment) {
             core_debug(`create comment for pull request ${pull.number}`);
@@ -36112,14 +36140,23 @@ const createComments = async (octokit, owner, repo, pulls, successfulPulls, cust
         }
     }
 };
-const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, customSuccessLabel, customFailureLabel) => {
+const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, failedPulls, customSuccessLabel, customFailureLabel) => {
     info('update labels');
     for (const pull of pulls) {
         const successful = successfulPulls.some(sp => sp.branch === pull.branch);
+        const failed = failedPulls.some(fp => fp.branch === pull.branch);
+        const targetLabel = successful
+            ? customSuccessLabel
+            : failed
+                ? customFailureLabel
+                : undefined;
         const hasSuccessfulLabel = pull.labels.some(label => label === customSuccessLabel);
         const hasFailureLabel = pull.labels.some(label => label === customFailureLabel);
-        if ((successful && hasSuccessfulLabel) ||
-            (!successful && hasFailureLabel)) {
+        if (!targetLabel) {
+            continue;
+        }
+        if ((targetLabel === customSuccessLabel && hasSuccessfulLabel) ||
+            (targetLabel === customFailureLabel && hasFailureLabel)) {
             continue;
         }
         if (hasSuccessfulLabel || hasFailureLabel) {
@@ -36128,7 +36165,9 @@ const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, custom
                 owner,
                 repo,
                 issue_number: pull.number,
-                name: successful ? customFailureLabel : customSuccessLabel
+                name: targetLabel === customSuccessLabel
+                    ? customFailureLabel
+                    : customSuccessLabel
             });
         }
         core_debug(`add label to pull request ${pull.number}`);
@@ -36136,7 +36175,7 @@ const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, custom
             owner,
             repo,
             issue_number: pull.number,
-            labels: [successful ? customSuccessLabel : customFailureLabel]
+            labels: [targetLabel]
         });
     }
 };
@@ -36181,11 +36220,11 @@ const autoDev = async () => {
     const customSuccessLabel = getInput('success_label') || 'successful';
     const customFailureLabel = getInput('failure_label') || 'failed';
     const octokit = createOctokit(token);
-    const updateComment = async (successfulPulls) => comments
-        ? createComments(octokit, owner, repo, pulls, successfulPulls, customSuccessComment, customFailureComment)
+    const updateComment = async (successfulPulls, failedPulls) => comments
+        ? createComments(octokit, owner, repo, base, pulls, successfulPulls, failedPulls, customSuccessComment, customFailureComment)
         : Promise.resolve();
-    const updateLabel = async (successfulPulls) => labels
-        ? updateLabels(octokit, owner, repo, pulls, successfulPulls, customSuccessLabel, customFailureLabel)
+    const updateLabel = async (successfulPulls, failedPulls) => labels
+        ? updateLabels(octokit, owner, repo, pulls, successfulPulls, failedPulls, customSuccessLabel, customFailureLabel)
         : Promise.resolve();
     const allPulls = await fetchPulls(octokit, owner, repo);
     const pulls = allPulls
@@ -36260,29 +36299,131 @@ const autoDev = async () => {
     // Comments and labels are written to the PRs only after the push step has
     // completed without rejection. Otherwise a lease-rejected push would leave
     // success comments/labels on PRs whose merges never landed on the branch.
-    if (mergeResult && mergeResult.success.length > 0) {
-        await updateComment(mergeResult.success);
-        await updateLabel(mergeResult.success);
+    //
+    // Failed-merge comments are also gated behind a successful push: if the
+    // push was rejected, the failed PR will be retried on the next run and any
+    // "you have a conflict" comment posted now might be wrong by then (e.g.
+    // the PR that was merged ahead of it could land on main in the meantime,
+    // or a different run-order could let this PR through cleanly).
+    if (mergeResult) {
+        await updateComment(mergeResult.success, mergeResult.failed);
+        await updateLabel(mergeResult.success, mergeResult.failed);
     }
 };
 const hasDiff = async (a, b) => {
     return ((await execAndSlurp(`git rev-parse ${a}`)) !==
         (await execAndSlurp(`git rev-parse ${b}`)));
 };
+/**
+ * Parse conflicting file paths from git merge output. git uses different line
+ * formats depending on the conflict type; each is matched specifically:
+ *
+ *   content / add-add:  "CONFLICT (...): Merge conflict in <path>"
+ *   modify/delete:      "CONFLICT (modify/delete): <path> deleted in ..."
+ *                       Note: git always emits "modify/delete" regardless of
+ *                       which side deleted; there is no "delete/modify" variant.
+ *   rename/rename:      "CONFLICT (rename/rename): <orig> renamed to <a> in ... and to <b> in ..."
+ *                       → the original path is extracted; it matches the old
+ *                         name that diff-tree records in fileToPulls.
+ *
+ * A single merge attempt produces at most one CONFLICT line per file (verified
+ * against real GHA runs), so dedup is not strictly needed but is kept as cheap
+ * insurance against future git versions or unexpected multi-hunk output.
+ */
+const extractConflictFiles = (output) => {
+    const files = new Set();
+    for (const m of output.matchAll(/^CONFLICT \([^)]*\): Merge conflict in (.+)$/gm)) {
+        files.add(m[1].trim());
+    }
+    for (const m of output.matchAll(/^CONFLICT \(modify\/delete\): (.+?) deleted in /gm)) {
+        files.add(m[1].trim());
+    }
+    for (const m of output.matchAll(/^CONFLICT \(rename\/rename\): (\S+) renamed to /gm)) {
+        files.add(m[1].trim());
+    }
+    return Array.from(files);
+};
 const autodev_merge = async (base, pulls, commitDate) => {
     const success = [];
     const failed = [];
+    // file path -> all dev-labeled PRs that successfully merged into the synthetic
+    // dev branch *earlier in this loop* and touched that file. The map answers
+    // the question a later failing PR needs answered: "which PRs were merged into
+    // dev ahead of me and now occupy the file I'm trying to change?"
+    //
+    // Important: this is NOT mutual blame. PRs that merged first are fine and
+    // stay in dev; only the PR whose merge attempt fails is excluded from this
+    // dev rebuild. The "winner" is purely temporal — whichever git merge ran
+    // first. See commentFail in utils.ts for the user-facing wording.
+    //
+    // Conflicts caused by commits already on `base` (e.g. another PR merged to
+    // main while this one was open) leave the list empty for that file, and the
+    // comment lists the file with no PR pointer.
+    const fileToPulls = new Map();
     for (const pull of pulls) {
+        let mergeOutput = '';
+        const preMergeHead = await execAndSlurp('git rev-parse HEAD');
         try {
-            await exec_exec(`git merge origin/${pull.branch}`);
+            await exec_exec(`git merge origin/${pull.branch}`, undefined, {
+                listeners: {
+                    stdout: (data) => {
+                        mergeOutput += data.toString();
+                    },
+                    stderr: (data) => {
+                        mergeOutput += data.toString();
+                    }
+                }
+            });
             success.push(pull);
         }
         catch (error) {
             info(
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `encountered merge conflicts with branch "${pull.branch}", error: ${error}`);
+            const conflictFiles = extractConflictFiles(mergeOutput);
+            const conflictingFileToPulls = new Map();
+            for (const file of conflictFiles) {
+                conflictingFileToPulls.set(file, fileToPulls.get(file) ?? []);
+            }
             await exec_exec(`git merge --abort`);
-            failed.push(pull);
+            failed.push({
+                ...pull,
+                conflictingFileToPulls
+            });
+            continue;
+        }
+        // Record which files this PR's merge commit touched, so a later failing
+        // merge can point at this PR as "merged ahead of you in this run."
+        //
+        // We diff pre-merge HEAD → post-merge HEAD rather than using
+        // `diff-tree --no-commit-id HEAD` because fast-forward merges don't
+        // produce a merge commit — HEAD simply moves to the tip of the incoming
+        // branch, and diff-tree would show that commit's diff against its own
+        // parent, not the files that changed vs where we were before the merge.
+        //
+        // -M detects renames; --name-status gives tab-separated status + paths
+        // (e.g. "R100\told.yaml\tnew.yaml"). Both old and new paths are indexed
+        // so a rename/rename conflict — where the CONFLICT line names the
+        // original path — can still find the PR that touched it.
+        const nameStatus = await execAndSlurp(`git diff --name-status -M ${preMergeHead.trim()} HEAD`);
+        for (const line of nameStatus.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed)
+                continue;
+            const parts = trimmed.split('\t');
+            const status = parts[0];
+            if (status.startsWith('R') && parts[1] && parts[2]) {
+                // Rename: index both old name (matches rename/rename CONFLICT line)
+                // and new name (matches content/modify conflicts on the renamed path).
+                for (const path of [parts[1], parts[2]]) {
+                    const existing = fileToPulls.get(path) ?? [];
+                    fileToPulls.set(path, [...existing, pull]);
+                }
+            }
+            else if (parts[1]) {
+                const existing = fileToPulls.get(parts[1]) ?? [];
+                fileToPulls.set(parts[1], [...existing, pull]);
+            }
         }
     }
     const overrideDate = {
@@ -36298,7 +36439,7 @@ const autodev_merge = async (base, pulls, commitDate) => {
         `The following branches have been merged:\n${successList}\n\n` +
         `The following branches failed to merge:\n${failList}`;
     if (success.length === 0) {
-        return { message, success };
+        return { message, success, failed };
     }
     await exec_exec(`git reset origin/${base}`);
     await exec_exec('git add -A');
@@ -36307,7 +36448,7 @@ const autodev_merge = async (base, pulls, commitDate) => {
     await exec_exec(`git replace --graft HEAD origin/${base}`, success.map(p => `origin/${p.branch}`), overrideDate);
     const rev = await execAndSlurp('git rev-parse HEAD');
     await exec_exec(`git checkout replace/${rev}`);
-    return { message, success };
+    return { message, success, failed };
 };
 /* harmony default export */ const autodev = (autoDev);
 
