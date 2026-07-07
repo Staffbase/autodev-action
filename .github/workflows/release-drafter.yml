@@ -12,6 +12,6 @@ permissions:
 
 jobs:
   update_release_draft:
-    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@9ea5ca06a1ef865b0af9745b47ea74b731b65fc5 # v13.4.1
+    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@7433384f8737623f2c8eb247427830629ce66d97 # v14.1.0
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
