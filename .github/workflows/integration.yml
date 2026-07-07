@@ -45,5 +45,5 @@ jobs:
     with:
       force: true
     secrets:
-      app_id: ${{ vars.STAFFBASE_ACTIONS_APP_ID }}
+      client-id: ${{ vars.STAFFBASE_ACTIONS_CLIENT_ID }}
       private_key: ${{ secrets.STAFFBASE_ACTIONS_PRIVATE_KEY }}
