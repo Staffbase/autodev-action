@@ -41,7 +41,7 @@ jobs:
 
   dependabot:
     needs: [build, test]
-    uses: Staffbase/gha-workflows/.github/workflows/template_automerge_dependabot.yml@7433384f8737623f2c8eb247427830629ce66d97 # v14.1.0
+    uses: Staffbase/gha-workflows/.github/workflows/template_automerge_dependabot.yml@a38088448bfd106dbabe9f3b88f8cc8c88aaec83 # v15.1.1
     with:
       force: true
     secrets:
