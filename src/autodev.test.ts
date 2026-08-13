@@ -128,11 +128,13 @@ import * as utils from './utils'
 
 const REMOTE_DEV_SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 const REMOTE_HEAD_SHA = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+const REMOTE_BASE_SHA = 'dddddddddddddddddddddddddddddddddddddddd'
 
 const stubRefSpecificExec = (extra?: Record<string, string>): void => {
   const refMap: Record<string, string | undefined> = {
     'git ls-remote --heads origin dev': `${REMOTE_DEV_SHA}\trefs/heads/dev`,
     'git rev-parse origin/dev': REMOTE_DEV_SHA,
+    'git rev-parse origin/main': REMOTE_BASE_SHA,
     'git rev-parse HEAD': REMOTE_HEAD_SHA,
     ...extra
   }
@@ -411,6 +413,99 @@ The following branches failed to merge:
     )
   })
 
+  it('should warn but not fail, and skip the push, when origin/base moved during the run', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+
+    const STALE_BASE_SHA = REMOTE_BASE_SHA
+    const ADVANCED_BASE_SHA = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+
+    let baseRevParseCalls = 0
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/main') {
+        // First call (start-of-run snapshot) sees the stale sha; the second
+        // call (right before the push) sees that a PR merged to main in the
+        // meantime and advanced it.
+        baseRevParseCalls += 1
+        const sha = baseRevParseCalls === 1 ? STALE_BASE_SHA : ADVANCED_BASE_SHA
+        opts?.listeners?.stdout?.(Buffer.from(`${sha}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(warning).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'push to dev skipped: origin/main moved during this run'
+      )
+    )
+    expect(setFailed).not.toHaveBeenCalled()
+    expect(exec).not.toHaveBeenCalledWith(
+      expect.stringContaining('git push --force-with-lease'),
+      undefined,
+      expect.anything()
+    )
+  })
+
+  it('should not post comments or labels when origin/base moved during the run', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input =>
+        ({token: 'token', base: 'main', comments: 'true', labels: 'true'})[
+          input
+        ] || ''
+    )
+
+    let baseRevParseCalls = 0
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/main') {
+        baseRevParseCalls += 1
+        const sha =
+          baseRevParseCalls === 1
+            ? REMOTE_BASE_SHA
+            : 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+        opts?.listeners?.stdout?.(Buffer.from(`${sha}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(commentsSpy).not.toHaveBeenCalled()
+    expect(labelsSpy).not.toHaveBeenCalled()
+  })
+
   it('should not post comments or labels when the push is rejected', async () => {
     vi.mocked(getInput).mockImplementation(
       input =>
@@ -428,6 +523,10 @@ The following branches failed to merge:
       }
       if (cmd === 'git rev-parse origin/dev') {
         opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/main') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_BASE_SHA}\n`))
         return Promise.resolve(0)
       }
       if (cmd === 'git rev-parse HEAD') {
