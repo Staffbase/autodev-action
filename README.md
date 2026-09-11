@@ -87,6 +87,17 @@ Add a status label if the merge was successful or failed.
     success_label: 'successful'
     failure_label: 'failed'
 ```
+# Merge Conflict Reporting
+
+When a dev-labeled PR can't be merged into the dev branch, the action logs a summary like:
+
+```
+The following branches failed to merge:
+- PR 18463 drop-searchagain-community-management-ae1 (95e97eb) - conflicts with PR 18605 QEA-1728-test-monitoring-slo (d5456b5)
+```
+
+The `conflicts with` suffix names the other dev-labeled PR/branch that was merged into the dev rebuild first and now conflicts with this one, or the `base` branch if the conflict is against a commit already there (e.g. another PR merged to `main` while this one was open). If `comments` is enabled, the same information is posted as a comment on the failed PR, broken down per conflicting file.
+
 # Permissions
 
 The Github Access Token needs the follwoing permissions:
