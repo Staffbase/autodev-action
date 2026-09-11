@@ -36715,9 +36715,32 @@ const autodev_merge = async (base, pulls, commitDate) => {
             GIT_AUTHOR_DATE: commitDate
         }
     };
-    const toBulletPoint = (pull) => `- PR ${pull.number} ${pull.branch} (${pull.sha.substring(0, 7)})`;
+    const pullLabel = (pull) => `PR ${pull.number} ${pull.branch} (${pull.sha.substring(0, 7)})`;
+    const toBulletPoint = (pull) => `- ${pullLabel(pull)}`;
+    // Summarizes what a failed PR's conflicts are against, so the log message
+    // doesn't require digging through the full merge output to find out. Mirrors
+    // the per-file detail already sent to commentFail in utils.ts, collapsed to
+    // one line per PR.
+    const describeConflicts = (pull) => {
+        const conflictingPulls = new Map();
+        let conflictsWithBase = false;
+        for (const pullers of pull.conflictingFileToPulls.values()) {
+            if (pullers.length === 0) {
+                conflictsWithBase = true;
+            }
+            for (const p of pullers) {
+                conflictingPulls.set(p.number, p);
+            }
+        }
+        const parts = Array.from(conflictingPulls.values()).map(pullLabel);
+        if (conflictsWithBase) {
+            parts.push(base);
+        }
+        return parts.length > 0 ? ` - conflicts with ${parts.join(', ')}` : '';
+    };
+    const toFailedBulletPoint = (pull) => `${toBulletPoint(pull)}${describeConflicts(pull)}`;
     const successList = success.map(toBulletPoint).join('\n');
-    const failList = failed.map(toBulletPoint).join('\n');
+    const failList = failed.map(toFailedBulletPoint).join('\n');
     const message = `AutoDev Merge\n\n` +
         `The following branches have been merged:\n${successList}\n\n` +
         `The following branches failed to merge:\n${failList}`;
