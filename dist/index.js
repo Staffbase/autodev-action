@@ -36530,18 +36530,6 @@ const autoDev = async () => {
     // run would simply observe (and adopt) the newer SHA as its expectation.
     const initialBranchSnapshot = await execAndSlurp(`git ls-remote --heads origin ${branch}`);
     let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || '';
-    // Snapshot origin/${base} too. The --force-with-lease guard above only
-    // protects the *destination* ref: it stops a stale run from overwriting a
-    // newer push, but it says nothing about whether the content we are about
-    // to push was itself built from a fresh ${base}. Everything below (the
-    // checkout, the merges, the `git reset origin/${base}` inside merge()) is
-    // fixed relative to whatever origin/${base} resolves to right now, from
-    // this one `git fetch`. If that fetch happened to land a moment before a
-    // commit (e.g. a just-merged PR) was pushed to ${base}, we'd build and
-    // push a ${branch} that regresses ${base}-derived content, and the lease
-    // above would not catch it: it only checks that ${branch} didn't move, not
-    // that our ${base} snapshot is current. Re-checked just before the push.
-    const initialBaseSha = (await execAndSlurp(`git rev-parse origin/${base}`)).trim();
     await exec_exec(`git checkout ${base}`);
     let mergeResult;
     if (pulls.length === 0) {
@@ -36564,20 +36552,6 @@ const autoDev = async () => {
     await exec_exec(`git checkout -B ${branch}`);
     // only push to defined branch if there are changes
     await exec_exec('git fetch');
-    // ${base} may have moved since we snapshotted it (e.g. another PR merged
-    // while we were checking out/merging/building). The content we're about to
-    // push was built from the old snapshot, so pushing it now would regress
-    // ${branch} relative to the true current ${base} — the --force-with-lease
-    // guard below can't detect this because it only tracks ${branch}'s tip, not
-    // ${base}'s. Bail out and let a subsequent AutoDev run (triggered by
-    // whatever advanced ${base}) rebuild from the current tip instead.
-    const currentBaseSha = (await execAndSlurp(`git rev-parse origin/${base}`)).trim();
-    if (currentBaseSha !== initialBaseSha) {
-        warning(`push to ${branch} skipped: origin/${base} moved during this run ` +
-            `(from ${initialBaseSha.substring(0, 7)} to ${currentBaseSha.substring(0, 7)}). ` +
-            `A subsequent AutoDev run will rebuild ${branch} from the current ${base}.`);
-        return;
-    }
     if (await hasDiff('HEAD', `origin/${branch}`)) {
         let pushStderr = '';
         const code = await exec_exec(`git push --force-with-lease=refs/heads/${branch}:${initialRemoteSha} -u origin refs/heads/${branch}`, undefined, {
