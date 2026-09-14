@@ -606,6 +606,59 @@ The following branches failed to merge:
         ])
       })
     ])
+
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '- PR 3 feature-3 (58767ad) - conflicts with PR 1 feature-1 (38767ad)'
+      )
+    )
+  })
+
+  it('reports a conflict with base in the log message when no prior dev PR owns the file', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+
+    vi.mocked(exec).mockImplementation((cmd, _args, opts) => {
+      if (cmd === 'git ls-remote --heads origin dev') {
+        opts?.listeners?.stdout?.(
+          Buffer.from(`${REMOTE_DEV_SHA}\trefs/heads/dev\n`)
+        )
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse origin/dev') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_DEV_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git rev-parse HEAD') {
+        opts?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git merge origin/feature-1') {
+        return Promise.resolve(0)
+      }
+      if (cmd === `git diff --name-status -M ${REMOTE_HEAD_SHA} HEAD`) {
+        opts?.listeners?.stdout?.(Buffer.from('M\tunrelated.yaml\n'))
+        return Promise.resolve(0)
+      }
+      if (cmd === 'git merge origin/feature-3') {
+        opts?.listeners?.stderr?.(
+          Buffer.from(
+            'CONFLICT (content): Merge conflict in path/to/file.yaml\n'
+          )
+        )
+        return Promise.reject(new Error('merge failed'))
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '- PR 3 feature-3 (58767ad) - conflicts with main'
+      )
+    )
   })
 
   // Two PRs fail in the same run for different reasons:
