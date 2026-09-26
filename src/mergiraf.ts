@@ -16,7 +16,10 @@ import {join} from 'node:path'
 import {isFeatureAvailable, restoreCache, saveCache} from '@actions/cache'
 import {addPath, info, warning} from '@actions/core'
 import {exec} from '@actions/exec'
-const VERSION = '0.19.1'
+
+import releaseManifest from './mergiraf-release.json'
+
+const VERSION = releaseManifest.version
 const BASE_URL = `https://codeberg.org/mergiraf/mergiraf/releases/download/v${VERSION}`
 
 interface ReleaseAsset {
@@ -25,34 +28,9 @@ interface ReleaseAsset {
   executable: string
 }
 
-// SHA-256 digests of the published archives; update with VERSION and BASE_URL.
-const RELEASE_ASSETS: Partial<Record<string, ReleaseAsset>> = {
-  'linux-x64': {
-    name: 'mergiraf_x86_64-unknown-linux-gnu.tar.gz',
-    sha256: 'f8179e1a779a9b50802b96f7244c85bda3990b6411cd92386bf7c1f829e40b42',
-    executable: 'mergiraf'
-  },
-  'linux-arm64': {
-    name: 'mergiraf_aarch64-unknown-linux-gnu.tar.gz',
-    sha256: '0aeb06842e2a8f225ee3666624b5747d4975f943f007ab4916aaa9a68e74fb85',
-    executable: 'mergiraf'
-  },
-  'darwin-x64': {
-    name: 'mergiraf_x86_64-apple-darwin.tar.gz',
-    sha256: '6e7a0414823cd07c79539f48523b54f3b6e29144a0efad511c30d3288f14713b',
-    executable: 'mergiraf'
-  },
-  'darwin-arm64': {
-    name: 'mergiraf_aarch64-apple-darwin.tar.gz',
-    sha256: '5bdcacc88dcabfd131591b3852a34c98fc9a23afdb5bc5ed1a58450269f7ddb2',
-    executable: 'mergiraf'
-  },
-  'win32-x64': {
-    name: 'mergiraf_x86_64-pc-windows-gnu.zip',
-    sha256: '094d9f4c2a21b7c1888a08481fd52a1354a4d5a9fb5bae599299fc8c7106e72e',
-    executable: 'mergiraf.exe'
-  }
-}
+const RELEASE_ASSETS = releaseManifest.assets as Partial<
+  Record<string, ReleaseAsset>
+>
 
 export const releaseAssetFor = (
   platform: NodeJS.Platform,

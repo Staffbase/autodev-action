@@ -9,6 +9,8 @@ Mergiraf is enabled by default for supported file types. Set the `mergiraf` inpu
 
 The verified archive is stored in the repository's GitHub Actions cache, keyed by Mergiraf version, runner platform, and checksum. A cache miss downloads from Codeberg; later runs restore the archive and verify its checksum before extracting it. Runs on the configured base branch also prime the cache when there are no labeled PRs, so other branches can reuse it. Cache failures are non-fatal and fall back to a fresh download.
 
+The `Update Mergiraf` workflow checks Codeberg weekly and opens or updates a draft PR for a newer stable release. It refreshes every supported asset checksum and rebuilds `dist/`; missing assets or download failures stop the update. Review and merge the PR to adopt the release.
+
 ```yaml
 name: Autodev
 on:

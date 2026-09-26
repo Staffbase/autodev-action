@@ -98046,6 +98046,8 @@ function saveCacheV2(paths_1, key_1, options_1) {
     });
 }
 //# sourceMappingURL=cache.js.map
+;// CONCATENATED MODULE: ./src/mergiraf-release.json
+const mergiraf_release_namespaceObject = /*#__PURE__*/JSON.parse('{"r":"0.19.1","m":{"linux-x64":{"name":"mergiraf_x86_64-unknown-linux-gnu.tar.gz","sha256":"f8179e1a779a9b50802b96f7244c85bda3990b6411cd92386bf7c1f829e40b42","executable":"mergiraf"},"linux-arm64":{"name":"mergiraf_aarch64-unknown-linux-gnu.tar.gz","sha256":"0aeb06842e2a8f225ee3666624b5747d4975f943f007ab4916aaa9a68e74fb85","executable":"mergiraf"},"darwin-x64":{"name":"mergiraf_x86_64-apple-darwin.tar.gz","sha256":"6e7a0414823cd07c79539f48523b54f3b6e29144a0efad511c30d3288f14713b","executable":"mergiraf"},"darwin-arm64":{"name":"mergiraf_aarch64-apple-darwin.tar.gz","sha256":"5bdcacc88dcabfd131591b3852a34c98fc9a23afdb5bc5ed1a58450269f7ddb2","executable":"mergiraf"},"win32-x64":{"name":"mergiraf_x86_64-pc-windows-gnu.zip","sha256":"094d9f4c2a21b7c1888a08481fd52a1354a4d5a9fb5bae599299fc8c7106e72e","executable":"mergiraf.exe"}}}');
 ;// CONCATENATED MODULE: ./src/mergiraf.ts
 
 
@@ -98054,36 +98056,10 @@ function saveCacheV2(paths_1, key_1, options_1) {
 
 
 
-const VERSION = '0.19.1';
+
+const VERSION = mergiraf_release_namespaceObject.r;
 const BASE_URL = `https://codeberg.org/mergiraf/mergiraf/releases/download/v${VERSION}`;
-// SHA-256 digests of the published archives; update with VERSION and BASE_URL.
-const RELEASE_ASSETS = {
-    'linux-x64': {
-        name: 'mergiraf_x86_64-unknown-linux-gnu.tar.gz',
-        sha256: 'f8179e1a779a9b50802b96f7244c85bda3990b6411cd92386bf7c1f829e40b42',
-        executable: 'mergiraf'
-    },
-    'linux-arm64': {
-        name: 'mergiraf_aarch64-unknown-linux-gnu.tar.gz',
-        sha256: '0aeb06842e2a8f225ee3666624b5747d4975f943f007ab4916aaa9a68e74fb85',
-        executable: 'mergiraf'
-    },
-    'darwin-x64': {
-        name: 'mergiraf_x86_64-apple-darwin.tar.gz',
-        sha256: '6e7a0414823cd07c79539f48523b54f3b6e29144a0efad511c30d3288f14713b',
-        executable: 'mergiraf'
-    },
-    'darwin-arm64': {
-        name: 'mergiraf_aarch64-apple-darwin.tar.gz',
-        sha256: '5bdcacc88dcabfd131591b3852a34c98fc9a23afdb5bc5ed1a58450269f7ddb2',
-        executable: 'mergiraf'
-    },
-    'win32-x64': {
-        name: 'mergiraf_x86_64-pc-windows-gnu.zip',
-        sha256: '094d9f4c2a21b7c1888a08481fd52a1354a4d5a9fb5bae599299fc8c7106e72e',
-        executable: 'mergiraf.exe'
-    }
-};
+const RELEASE_ASSETS = mergiraf_release_namespaceObject.m;
 const releaseAssetFor = (platform, architecture) => {
     const target = `${platform}-${architecture}`;
     const asset = RELEASE_ASSETS[target];
