@@ -7,6 +7,8 @@ This action merges commits from different pull requests that have been tagged wi
 
 Mergiraf is enabled by default for supported file types. Set the `mergiraf` input to `false` to use Git's regular merge behavior. The action downloads a pinned, checksum-verified Mergiraf release when at least one labeled pull request is queued. Supported runners: Linux x64/arm64 (glibc), macOS x64/arm64, and Windows x64.
 
+The verified archive is stored in the repository's GitHub Actions cache, keyed by Mergiraf version, runner platform, and checksum. A cache miss downloads from Codeberg; later runs restore the archive and verify its checksum before extracting it. Runs on the configured base branch also prime the cache when there are no labeled PRs, so other branches can reuse it. Cache failures are non-fatal and fall back to a fresh download.
+
 ```yaml
 name: Autodev
 on:
@@ -24,7 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          # The token of the user that should perform the merges. 
+          # The token of the user that should perform the merges.
           # This must be a personal access token with the necessary permissions
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           fetch-depth: 0

@@ -2,7 +2,7 @@ import {debug, getInput, info, setFailed, warning} from '@actions/core'
 import type {ExecOptions} from '@actions/exec'
 import {exec} from '@actions/exec'
 
-import {configureMergiraf} from './mergiraf'
+import {configureMergiraf, primeMergirafCache} from './mergiraf'
 import type {FailedPull, Pull} from './utils'
 import {
   createComments,
@@ -106,8 +106,13 @@ const autoDev = async (): Promise<void> => {
       branch: pull.head.ref,
       labels: pull.labels.map(l => l.name)
     }))
-  if (pulls.length > 0 && getInput('mergiraf') !== 'false') {
-    await configureMergiraf()
+  const useMergiraf = getInput('mergiraf') !== 'false'
+  if (useMergiraf) {
+    if (pulls.length > 0) {
+      await configureMergiraf()
+    } else if (process.env.GITHUB_REF === `refs/heads/${base}`) {
+      await primeMergirafCache()
+    }
   }
 
   await exec('git fetch')

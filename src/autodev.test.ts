@@ -120,14 +120,15 @@ vi.mock('@actions/exec', () => ({
 }))
 
 vi.mock('./mergiraf', () => ({
-  configureMergiraf: vi.fn().mockResolvedValue(undefined)
+  configureMergiraf: vi.fn().mockResolvedValue(undefined),
+  primeMergirafCache: vi.fn().mockResolvedValue(undefined)
 }))
 
 import {getInput, info, setFailed, warning} from '@actions/core'
 import {exec} from '@actions/exec'
 
 import autoDev from './autodev'
-import {configureMergiraf} from './mergiraf'
+import {configureMergiraf, primeMergirafCache} from './mergiraf'
 import type {PullsListResponseData} from './utils'
 import * as utils from './utils'
 
@@ -223,6 +224,25 @@ The following branches failed to merge:
           ([command]) => command === 'git merge origin/feature-1'
         )
     ).toBe(true)
+  })
+
+  it('primes the shared Mergiraf cache on the base branch when there are no labeled PRs', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([])
+    const originalRef = process.env.GITHUB_REF
+    process.env.GITHUB_REF = 'refs/heads/main'
+
+    try {
+      await autoDev()
+    } finally {
+      if (originalRef === undefined) delete process.env.GITHUB_REF
+      else process.env.GITHUB_REF = originalRef
+    }
+
+    expect(primeMergirafCache).toHaveBeenCalledOnce()
+    expect(configureMergiraf).not.toHaveBeenCalled()
   })
 
   it('should add successful comments', async () => {

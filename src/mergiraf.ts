@@ -5,6 +5,7 @@ import {
   copyFile,
   mkdir,
   mkdtemp,
+  readFile,
   rename,
   rm,
   writeFile
@@ -12,7 +13,8 @@ import {
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 
-import {addPath, info} from '@actions/core'
+import {isFeatureAvailable, restoreCache, saveCache} from '@actions/cache'
+import {addPath, info, warning} from '@actions/core'
 import {exec} from '@actions/exec'
 const VERSION = '0.19.1'
 const BASE_URL = `https://codeberg.org/mergiraf/mergiraf/releases/download/v${VERSION}`
@@ -87,12 +89,31 @@ const exists = async (filePath: string): Promise<boolean> => {
   }
 }
 
-const installBinary = async (
-  asset: ReleaseAsset,
-  installDir: string
-): Promise<string> => {
-  const executablePath = join(installDir, asset.executable)
-  if (await exists(executablePath)) return executablePath
+const archiveFor = async (asset: ReleaseAsset): Promise<Buffer> => {
+  const runnerTemp = process.env.RUNNER_TEMP ?? tmpdir()
+  const target = `${process.platform}-${process.arch}`
+  const cacheDir = join(runnerTemp, 'autodev-mergiraf-cache', VERSION, target)
+  const archivePath = join(cacheDir, asset.name)
+  const cacheKey = `autodev-mergiraf-v1-${VERSION}-${target}-${asset.sha256}`
+  await mkdir(cacheDir, {recursive: true})
+  const cacheAvailable = isFeatureAvailable()
+  if (cacheAvailable) {
+    try {
+      const restoredKey = await restoreCache([cacheDir], cacheKey)
+      if (restoredKey) {
+        const cachedArchive = await readFile(archivePath)
+        verifyReleaseChecksum(cachedArchive, asset.sha256)
+        info(`Using cached Mergiraf ${VERSION} archive`)
+        return cachedArchive
+      }
+    } catch (error) {
+      warning(
+        `Ignoring unavailable or invalid Mergiraf cache: ${String(error)}`
+      )
+      await rm(cacheDir, {recursive: true, force: true})
+      await mkdir(cacheDir, {recursive: true})
+    }
+  }
 
   const response = await fetch(`${BASE_URL}/${asset.name}`)
   if (!response.ok) {
@@ -102,7 +123,29 @@ const installBinary = async (
   }
   const archive = Buffer.from(await response.arrayBuffer())
   verifyReleaseChecksum(archive, asset.sha256)
+  await writeFile(archivePath, archive)
 
+  if (cacheAvailable) {
+    try {
+      const cacheId = await saveCache([cacheDir], cacheKey)
+      if (cacheId >= 0) {
+        info(`Saved Mergiraf ${VERSION} archive to the GitHub Actions cache`)
+      }
+    } catch (error) {
+      warning(`Could not save Mergiraf archive cache: ${String(error)}`)
+    }
+  }
+  return archive
+}
+
+const installBinary = async (
+  asset: ReleaseAsset,
+  installDir: string
+): Promise<string> => {
+  const executablePath = join(installDir, asset.executable)
+  if (await exists(executablePath)) return executablePath
+
+  const archive = await archiveFor(asset)
   await mkdir(installDir, {recursive: true})
   const tempDir = await mkdtemp(join(tmpdir(), 'autodev-mergiraf-'))
   try {
@@ -133,6 +176,9 @@ const installBinary = async (
   }
 
   return executablePath
+}
+export const primeMergirafCache = async (): Promise<void> => {
+  await archiveFor(releaseAssetFor(process.platform, process.arch))
 }
 
 export const configureMergiraf = async (): Promise<void> => {
