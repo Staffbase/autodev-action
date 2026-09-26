@@ -119,10 +119,15 @@ vi.mock('@actions/exec', () => ({
   exec: vi.fn()
 }))
 
+vi.mock('./mergiraf', () => ({
+  configureMergiraf: vi.fn().mockResolvedValue(undefined)
+}))
+
 import {getInput, info, setFailed, warning} from '@actions/core'
 import {exec} from '@actions/exec'
 
 import autoDev from './autodev'
+import {configureMergiraf} from './mergiraf'
 import type {PullsListResponseData} from './utils'
 import * as utils from './utils'
 
@@ -201,6 +206,23 @@ The following branches have been merged:
 
 The following branches failed to merge:
 `)
+  })
+
+  it('uses Git normal merges when Mergiraf is disabled', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main', mergiraf: 'false'})[input] || ''
+    )
+
+    await autoDev()
+
+    expect(configureMergiraf).not.toHaveBeenCalled()
+    expect(
+      vi
+        .mocked(exec)
+        .mock.calls.some(
+          ([command]) => command === 'git merge origin/feature-1'
+        )
+    ).toBe(true)
   })
 
   it('should add successful comments', async () => {

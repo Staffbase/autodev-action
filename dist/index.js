@@ -29277,10 +29277,10 @@ function file_command_issueFileCommand(command, message) {
     if (!filePath) {
         throw new Error(`Unable to find environment variable for file command ${command}`);
     }
-    if (!fs.existsSync(filePath)) {
+    if (!external_fs_namespaceObject.existsSync(filePath)) {
         throw new Error(`Missing file at path: ${filePath}`);
     }
-    fs.appendFileSync(filePath, `${toCommandValue(message)}${os.EOL}`, {
+    external_fs_namespaceObject.appendFileSync(filePath, `${utils_toCommandValue(message)}${external_os_namespaceObject.EOL}`, {
         encoding: 'utf8'
     });
 }
@@ -31844,12 +31844,12 @@ function core_setSecret(secret) {
 function addPath(inputPath) {
     const filePath = process.env['GITHUB_PATH'] || '';
     if (filePath) {
-        issueFileCommand('PATH', inputPath);
+        file_command_issueFileCommand('PATH', inputPath);
     }
     else {
-        issueCommand('add-path', {}, inputPath);
+        command_issueCommand('add-path', {}, inputPath);
     }
-    process.env['PATH'] = `${inputPath}${path.delimiter}${process.env['PATH']}`;
+    process.env['PATH'] = `${inputPath}${external_path_namespaceObject.delimiter}${process.env['PATH']}`;
 }
 /**
  * Gets the value of an input.
@@ -32075,6 +32075,149 @@ function getIDToken(aud) {
  */
 
 //# sourceMappingURL=core.js.map
+// EXTERNAL MODULE: external "node:crypto"
+var external_node_crypto_ = __nccwpck_require__(7598);
+;// CONCATENATED MODULE: external "node:fs/promises"
+const promises_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs/promises");
+;// CONCATENATED MODULE: external "node:os"
+const external_node_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:os");
+;// CONCATENATED MODULE: external "node:path"
+const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
+;// CONCATENATED MODULE: ./src/mergiraf.ts
+
+
+
+
+
+
+const VERSION = '0.19.1';
+const BASE_URL = `https://codeberg.org/mergiraf/mergiraf/releases/download/v${VERSION}`;
+// SHA-256 digests of the published archives; update with VERSION and BASE_URL.
+const RELEASE_ASSETS = {
+    'linux-x64': {
+        name: 'mergiraf_x86_64-unknown-linux-gnu.tar.gz',
+        sha256: 'f8179e1a779a9b50802b96f7244c85bda3990b6411cd92386bf7c1f829e40b42',
+        executable: 'mergiraf'
+    },
+    'linux-arm64': {
+        name: 'mergiraf_aarch64-unknown-linux-gnu.tar.gz',
+        sha256: '0aeb06842e2a8f225ee3666624b5747d4975f943f007ab4916aaa9a68e74fb85',
+        executable: 'mergiraf'
+    },
+    'darwin-x64': {
+        name: 'mergiraf_x86_64-apple-darwin.tar.gz',
+        sha256: '6e7a0414823cd07c79539f48523b54f3b6e29144a0efad511c30d3288f14713b',
+        executable: 'mergiraf'
+    },
+    'darwin-arm64': {
+        name: 'mergiraf_aarch64-apple-darwin.tar.gz',
+        sha256: '5bdcacc88dcabfd131591b3852a34c98fc9a23afdb5bc5ed1a58450269f7ddb2',
+        executable: 'mergiraf'
+    },
+    'win32-x64': {
+        name: 'mergiraf_x86_64-pc-windows-gnu.zip',
+        sha256: '094d9f4c2a21b7c1888a08481fd52a1354a4d5a9fb5bae599299fc8c7106e72e',
+        executable: 'mergiraf.exe'
+    }
+};
+const releaseAssetFor = (platform, architecture) => {
+    const target = `${platform}-${architecture}`;
+    const asset = RELEASE_ASSETS[target];
+    if (!asset) {
+        throw new Error(`Mergiraf ${VERSION} does not support runner platform ${target}`);
+    }
+    return asset;
+};
+const verifyReleaseChecksum = (contents, expected) => {
+    const actual = (0,external_node_crypto_.createHash)('sha256').update(contents).digest('hex');
+    if (actual !== expected) {
+        throw new Error(`Mergiraf release checksum mismatch: expected ${expected}, got ${actual}`);
+    }
+};
+const mergiraf_exists = async (filePath) => {
+    try {
+        await (0,promises_namespaceObject.access)(filePath);
+        return true;
+    }
+    catch {
+        return false;
+    }
+};
+const installBinary = async (asset, installDir) => {
+    const executablePath = (0,external_node_path_namespaceObject.join)(installDir, asset.executable);
+    if (await mergiraf_exists(executablePath))
+        return executablePath;
+    const response = await fetch(`${BASE_URL}/${asset.name}`);
+    if (!response.ok) {
+        throw new Error(`Failed to download Mergiraf ${VERSION}: HTTP ${response.status}`);
+    }
+    const archive = Buffer.from(await response.arrayBuffer());
+    verifyReleaseChecksum(archive, asset.sha256);
+    await (0,promises_namespaceObject.mkdir)(installDir, { recursive: true });
+    const tempDir = await (0,promises_namespaceObject.mkdtemp)((0,external_node_path_namespaceObject.join)((0,external_node_os_namespaceObject.tmpdir)(), 'autodev-mergiraf-'));
+    try {
+        const archivePath = (0,external_node_path_namespaceObject.join)(tempDir, asset.name);
+        const extractDir = (0,external_node_path_namespaceObject.join)(tempDir, 'extract');
+        await (0,promises_namespaceObject.mkdir)(extractDir);
+        await (0,promises_namespaceObject.writeFile)(archivePath, archive);
+        await exec_exec('tar', ['-xf', archivePath, '-C', extractDir]);
+        const extractedBinary = (0,external_node_path_namespaceObject.join)(extractDir, asset.executable);
+        await (0,promises_namespaceObject.access)(extractedBinary);
+        await (0,promises_namespaceObject.chmod)(extractedBinary, 0o755);
+        const stagedBinary = (0,external_node_path_namespaceObject.join)(installDir, `.mergiraf-${process.pid}-${Date.now()}`);
+        await (0,promises_namespaceObject.copyFile)(extractedBinary, stagedBinary);
+        await (0,promises_namespaceObject.chmod)(stagedBinary, 0o755);
+        try {
+            await (0,promises_namespaceObject.rename)(stagedBinary, executablePath);
+        }
+        catch (error) {
+            if (!(await mergiraf_exists(executablePath)))
+                throw error;
+            await (0,promises_namespaceObject.rm)(stagedBinary, { force: true });
+        }
+    }
+    finally {
+        await (0,promises_namespaceObject.rm)(tempDir, { recursive: true, force: true });
+    }
+    return executablePath;
+};
+const configureMergiraf = async () => {
+    const asset = releaseAssetFor(process.platform, process.arch);
+    const toolCache = process.env.RUNNER_TOOL_CACHE ?? process.env.RUNNER_TEMP ?? (0,external_node_os_namespaceObject.tmpdir)();
+    const installDir = (0,external_node_path_namespaceObject.join)(toolCache, 'autodev-mergiraf', VERSION, `${process.platform}-${process.arch}`);
+    await installBinary(asset, installDir);
+    addPath(installDir);
+    info(`Using Mergiraf ${VERSION} (${asset.name})`);
+    let attributes = '';
+    await exec_exec('mergiraf', ['languages', '--gitattributes'], {
+        silent: true,
+        listeners: {
+            stdout: data => {
+                attributes += data.toString();
+            }
+        }
+    });
+    if (!attributes.trim())
+        throw new Error('Mergiraf returned an empty attributes list');
+    const tempDir = await (0,promises_namespaceObject.mkdtemp)((0,external_node_path_namespaceObject.join)(process.env.RUNNER_TEMP ?? (0,external_node_os_namespaceObject.tmpdir)(), 'autodev-mergiraf-'));
+    const attributesPath = (0,external_node_path_namespaceObject.join)(tempDir, 'attributes');
+    await (0,promises_namespaceObject.writeFile)(attributesPath, attributes);
+    await exec_exec('git', ['config', '--local', 'merge.mergiraf.name', 'Mergiraf']);
+    await exec_exec('git', [
+        'config',
+        '--local',
+        'merge.mergiraf.driver',
+        'mergiraf merge --git %O %A %B -s %S -x %X -y %Y -p %P -l %L'
+    ]);
+    await exec_exec('git', ['config', '--local', 'merge.conflictStyle', 'diff3']);
+    await exec_exec('git', [
+        'config',
+        '--local',
+        'core.attributesFile',
+        attributesPath
+    ]);
+};
+
 ;// CONCATENATED MODULE: ./node_modules/.pnpm/@actions+github@9.1.1/node_modules/@actions/github/lib/context.js
 
 
@@ -32348,10 +32491,10 @@ function Collection() {
 
 
 // pkg/dist-src/version.js
-var VERSION = "0.0.0-development";
+var dist_bundle_VERSION = "0.0.0-development";
 
 // pkg/dist-src/defaults.js
-var userAgent = `octokit-endpoint.js/${VERSION} ${getUserAgent()}`;
+var userAgent = `octokit-endpoint.js/${dist_bundle_VERSION} ${getUserAgent()}`;
 var DEFAULTS = {
   method: "GET",
   baseUrl: "https://api.github.com",
@@ -32896,12 +33039,12 @@ class RequestError extends Error {
 
 
 // pkg/dist-src/version.js
-var dist_bundle_VERSION = "10.0.8";
+var request_dist_bundle_VERSION = "10.0.8";
 
 // pkg/dist-src/defaults.js
 var defaults_default = {
   headers: {
-    "user-agent": `octokit-request.js/${dist_bundle_VERSION} ${getUserAgent()}`
+    "user-agent": `octokit-request.js/${request_dist_bundle_VERSION} ${getUserAgent()}`
   }
 };
 
@@ -36467,6 +36610,7 @@ const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, failed
 
 
 
+
 /**
  * this function runs a command via exec, and returns the whole output as string.
  */
@@ -36518,6 +36662,9 @@ const autoDev = async () => {
         branch: pull.head.ref,
         labels: pull.labels.map(l => l.name)
     }));
+    if (pulls.length > 0 && getInput('mergiraf') !== 'false') {
+        await configureMergiraf();
+    }
     await exec_exec('git fetch');
     await exec_exec(`git config user.email "${email}"`);
     await exec_exec(`git config user.name "${user}"`);

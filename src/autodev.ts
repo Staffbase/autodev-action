@@ -2,6 +2,7 @@ import {debug, getInput, info, setFailed, warning} from '@actions/core'
 import type {ExecOptions} from '@actions/exec'
 import {exec} from '@actions/exec'
 
+import {configureMergiraf} from './mergiraf'
 import type {FailedPull, Pull} from './utils'
 import {
   createComments,
@@ -105,6 +106,9 @@ const autoDev = async (): Promise<void> => {
       branch: pull.head.ref,
       labels: pull.labels.map(l => l.name)
     }))
+  if (pulls.length > 0 && getInput('mergiraf') !== 'false') {
+    await configureMergiraf()
+  }
 
   await exec('git fetch')
   await exec(`git config user.email "${email}"`)

@@ -5,6 +5,8 @@
 
 This action merges commits from different pull requests that have been tagged with the label `dev` into the `dev` branch on your GitHub repository.
 
+Mergiraf is enabled by default for supported file types. Set the `mergiraf` input to `false` to use Git's regular merge behavior. The action downloads a pinned, checksum-verified Mergiraf release when at least one labeled pull request is queued. Supported runners: Linux x64/arm64 (glibc), macOS x64/arm64, and Windows x64.
+
 ```yaml
 name: Autodev
 on:
@@ -48,6 +50,7 @@ You can find all input options which are available for this action.
 | success_comment | Comment string that will be shown in the pull request on success. Only necessary if `comments` is enabled.                                                                                    | ''                     |
 | failure_comment | Comment string that will be shown in the pull request on failure. Only necessary if `comments` is enabled.                                                                                    | ''                     |
 | labels          | The GitHub action updates the labels inside every pull request for successful or failed merges to the dev branch.                                                                             | false                  |
+| mergiraf        | Enable syntax-aware merging for supported files. Set to `false` to disable.                                                                                                                   | true                   |
 | success_label   | Label string that will be shown on the Pull request on success. Only necessary if `labels` is enabled.                                                                                        | successful             |
 | failure_label   | Label string that will be shown on the Pull request on failure. Only necessary if `labels` is enabled.                                                                                        | failed                 |
 | user            | Name of the user which does the git commit.                                                                                                                                                   | AutoDev Action         |
