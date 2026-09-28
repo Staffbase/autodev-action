@@ -262,6 +262,106 @@ The following branches failed to merge:
     ).toBe(true)
   })
 
+  it('retries a fatal Mergiraf merge with Git and resets when abort is unavailable', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([
+      {
+        number: 4,
+        labels: [{name: 'dev'}],
+        head: {
+          ref: 'fallback-feature',
+          sha: '68767ad258cbc536826996ef881eaa797851fc11'
+        }
+      }
+    ] as PullsListResponseData)
+
+    let mergeAttempts = 0
+    let retryEnvironment: Record<string, string> | undefined
+    const commands: string[] = []
+    vi.mocked(exec).mockImplementation((command, args, options) => {
+      commands.push(command)
+      if (command === 'git rev-parse HEAD') {
+        options?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+      } else if (command === 'git merge origin/fallback-feature') {
+        mergeAttempts += 1
+        if (mergeAttempts === 1) {
+          options?.listeners?.stderr?.(
+            Buffer.from('fatal: could not fetch promised object\n')
+          )
+          return Promise.reject(new Error('promisor fetch failed'))
+        }
+        retryEnvironment = options?.env
+      } else if (command === 'git merge --abort') {
+        return Promise.reject(new Error('There is no merge to abort'))
+      } else if (command === 'git reset --hard') {
+        expect(args).toEqual([REMOTE_HEAD_SHA])
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(mergeAttempts).toBe(2)
+    expect(retryEnvironment?.mergiraf).toBe('0')
+    expect(retryEnvironment?.PATH).toBe(process.env.PATH)
+    expect(commands).toContain('git reset --hard')
+    expect(setFailed).not.toHaveBeenCalled()
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining('- PR 4 fallback-feature (68767ad)')
+    )
+  })
+
+  it('records a PR failure when the ORT retry also fails and merge abort is unavailable', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([
+      {
+        number: 5,
+        labels: [{name: 'dev'}],
+        head: {
+          ref: 'ort-conflict',
+          sha: '78767ad258cbc536826996ef881eaa797851fc12'
+        }
+      }
+    ] as PullsListResponseData)
+
+    let mergeAttempts = 0
+    let resets = 0
+    vi.mocked(exec).mockImplementation((command, args, options) => {
+      if (command === 'git rev-parse HEAD') {
+        options?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+      } else if (command === 'git merge origin/ort-conflict') {
+        mergeAttempts += 1
+        options?.listeners?.stderr?.(
+          Buffer.from(
+            mergeAttempts === 1
+              ? 'fatal: Mergiraf merge failed\n'
+              : 'CONFLICT (content): Merge conflict in conflict.go\n'
+          )
+        )
+        return Promise.reject(new Error('merge failed'))
+      } else if (command === 'git merge --abort') {
+        return Promise.reject(new Error('There is no merge to abort'))
+      } else if (command === 'git reset --hard') {
+        resets += 1
+        expect(args).toEqual([REMOTE_HEAD_SHA])
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(mergeAttempts).toBe(2)
+    expect(resets).toBe(2)
+    expect(setFailed).not.toHaveBeenCalled()
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining('- PR 5 ort-conflict (78767ad)')
+    )
+  })
+
   it('primes the shared Mergiraf cache on the base branch when there are no labeled PRs', async () => {
     vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''

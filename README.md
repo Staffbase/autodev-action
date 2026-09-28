@@ -5,7 +5,7 @@
 
 This action merges commits from different pull requests that have been tagged with the label `dev` into the `dev` branch on your GitHub repository.
 
-Mergiraf is enabled by default for supported file types. Set the `mergiraf` input to `false` to use Git's regular merge behavior. The action downloads a pinned, checksum-verified Mergiraf release when at least one labeled pull request is queued. Supported runners: Linux x64/arm64 (glibc), macOS x64/arm64, and Windows x64.
+Mergiraf is enabled by default for supported file types. Set the `mergiraf` input to `false` to use Git's regular merge behavior. If a Mergiraf-enabled merge attempt fails, AutoDev restores the pre-merge state and retries that PR once with Git's built-in merge behavior. If the retry also fails, that PR is marked failed and AutoDev continues rebuilding the remaining branches. Supported runners: Linux x64/arm64 (glibc), macOS x64/arm64, and Windows x64.
 
 The verified archive is stored in the repository's GitHub Actions cache, keyed by Mergiraf version, runner platform, and checksum. A cache miss downloads from Codeberg; later runs restore the archive and verify its checksum before extracting it. Runs on the configured base branch also prime the cache when there are no labeled PRs, so other branches can reuse it. Cache failures are non-fatal and fall back to a fresh download.
 
@@ -94,6 +94,7 @@ Add a status label if the merge was successful or failed.
     success_label: 'successful'
     failure_label: 'failed'
 ```
+
 # Merge Conflict Reporting
 
 When a dev-labeled PR can't be merged into the dev branch, the action logs a summary like:

@@ -28,7 +28,7 @@ AutoDev rebuilds a dev branch by merging labeled pull requests in sequence. Git 
 
 ## Decision Details
 
-The action installs a pinned Mergiraf release, verifies its SHA-256, and configures a repository-local merge driver and supported-file attributes. It caches the verified archive in the caller repository's GitHub Actions cache; a base-branch run primes the cache for other branches. Callers can set `mergiraf: false` to use Git's normal merge behavior.
+The action installs a pinned Mergiraf release, verifies its SHA-256, and configures a repository-local merge driver and supported-file attributes. It caches the verified archive in the caller repository's GitHub Actions cache; a base-branch run primes the cache for other branches. If a Mergiraf-enabled merge command fails, AutoDev restores the pre-merge state and retries that PR once with Git's built-in merge driver. Callers can set `mergiraf: false` to skip Mergiraf and use Git directly.
 
 ## Consequences
 
@@ -41,4 +41,4 @@ The action installs a pinned Mergiraf release, verifies its SHA-256, and configu
 ### Negative Consequences
 
 - A cache miss depends on downloading a release from Codeberg; release updates require matching checksum updates.
-- Mergiraf uses heuristics and does not resolve every conflict; unresolved conflicts still fail that PR's merge attempt.
+- Mergiraf uses heuristics and does not resolve every conflict; the single Git retry can also fail, in which case only that PR is excluded from the dev rebuild.

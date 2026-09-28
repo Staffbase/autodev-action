@@ -102671,7 +102671,7 @@ const autoDev = async () => {
     }
     else {
         core_debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`);
-        mergeResult = await autodev_merge(base, pulls, commitDate);
+        mergeResult = await autodev_merge(base, pulls, commitDate, useMergiraf);
         info(mergeResult.message);
     }
     // check if the branch exists, if not create it from base
@@ -102760,7 +102760,7 @@ const extractConflictFiles = (output) => {
     }
     return Array.from(files);
 };
-const autodev_merge = async (base, pulls, commitDate) => {
+const autodev_merge = async (base, pulls, commitDate, retryWithoutMergiraf) => {
     const success = [];
     const failed = [];
     // file path -> all dev-labeled PRs that successfully merged into the synthetic
@@ -102779,36 +102779,59 @@ const autodev_merge = async (base, pulls, commitDate) => {
     const fileToPulls = new Map();
     for (const pull of pulls) {
         let mergeOutput = '';
-        const preMergeHead = await execAndSlurp('git rev-parse HEAD');
-        try {
-            await exec_exec(`git merge origin/${pull.branch}`, undefined, {
-                listeners: {
-                    stdout: (data) => {
-                        mergeOutput += data.toString();
-                    },
-                    stderr: (data) => {
-                        mergeOutput += data.toString();
+        const preMergeHead = (await execAndSlurp('git rev-parse HEAD')).trim();
+        const tryMerge = async (disableMergiraf) => {
+            mergeOutput = '';
+            try {
+                await exec_exec(`git merge origin/${pull.branch}`, undefined, {
+                    env: disableMergiraf ? { ...process.env, mergiraf: '0' } : undefined,
+                    listeners: {
+                        stdout: data => {
+                            mergeOutput += data.toString();
+                        },
+                        stderr: data => {
+                            mergeOutput += data.toString();
+                        }
                     }
-                }
-            });
-            success.push(pull);
+                });
+                return true;
+            }
+            catch (error) {
+                info(
+                // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+                `merge attempt for branch "${pull.branch}" failed${disableMergiraf ? ' without Mergiraf' : ''}: ${error}`);
+                return false;
+            }
+        };
+        const restoreBeforeRetry = async () => {
+            try {
+                await exec_exec('git merge --abort');
+            }
+            catch (error) {
+                core_debug(`git merge --abort could not restore branch "${pull.branch}": ${String(error)}`);
+                await exec_exec('git reset --hard', [preMergeHead]);
+            }
+        };
+        let merged = await tryMerge(false);
+        if (!merged && retryWithoutMergiraf) {
+            await restoreBeforeRetry();
+            info(`retrying branch "${pull.branch}" with Git's built-in merge driver`);
+            merged = await tryMerge(true);
         }
-        catch (error) {
-            info(
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            `encountered merge conflicts with branch "${pull.branch}", error: ${error}`);
+        if (!merged) {
             const conflictFiles = extractConflictFiles(mergeOutput);
             const conflictingFileToPulls = new Map();
             for (const file of conflictFiles) {
                 conflictingFileToPulls.set(file, fileToPulls.get(file) ?? []);
             }
-            await exec_exec(`git merge --abort`);
+            await restoreBeforeRetry();
             failed.push({
                 ...pull,
                 conflictingFileToPulls
             });
             continue;
         }
+        success.push(pull);
         // Record which files this PR's merge commit touched, so a later failing
         // merge can point at this PR as "merged ahead of you in this run."
         //
