@@ -1,3 +1,4 @@
+import type {MockInstance} from 'vitest'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 import type {FailedPull} from './utils'
@@ -105,6 +106,39 @@ describe('updateLabels', () => {
     expect(addLabels).not.toHaveBeenCalled()
     expect(removeLabel).not.toHaveBeenCalled()
   })
+
+  it('removes a stale failure label when success already exists with different casing', async () => {
+    const addLabels = vi.fn()
+    const removeLabel = vi.fn()
+    const octokit = {
+      rest: {issues: {addLabels, removeLabel}}
+    } as unknown as Parameters<typeof updateLabels>[0]
+    const pull = {
+      sha: 'aaa',
+      number: 63,
+      branch: 'add-mcp-create-page-tool',
+      labels: ['dev', 'dev successful', 'dev failed']
+    }
+
+    await updateLabels(
+      octokit,
+      'owner',
+      'repo',
+      [pull],
+      [pull],
+      [],
+      'dev Successful',
+      'dev Failed'
+    )
+
+    expect(removeLabel).toHaveBeenCalledWith({
+      owner: 'owner',
+      repo: 'repo',
+      issue_number: 63,
+      name: 'dev failed'
+    })
+    expect(addLabels).not.toHaveBeenCalled()
+  })
 })
 
 vi.mock('@actions/core', () => ({
@@ -152,10 +186,12 @@ const stubRefSpecificExec = (extra?: Record<string, string>): void => {
 }
 
 describe('autodev', () => {
-  const labelsSpy = vi.spyOn(utils, 'updateLabels').mockResolvedValue()
-  const commentsSpy = vi.spyOn(utils, 'createComments').mockResolvedValue()
+  let labelsSpy: MockInstance<typeof utils.updateLabels>
+  let commentsSpy: MockInstance<typeof utils.createComments>
 
   beforeEach(() => {
+    labelsSpy = vi.spyOn(utils, 'updateLabels').mockResolvedValue()
+    commentsSpy = vi.spyOn(utils, 'createComments').mockResolvedValue()
     vi.spyOn(utils, 'getRepoString').mockReturnValue(
       '@staffbase/auto-dev-action'
     )

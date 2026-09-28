@@ -102550,41 +102550,40 @@ const createComments = async (octokit, owner, repo, base, pulls, successfulPulls
 };
 const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, failedPulls, customSuccessLabel, customFailureLabel) => {
     info('update labels');
+    const normalizedSuccessLabel = customSuccessLabel.toLowerCase();
+    const normalizedFailureLabel = customFailureLabel.toLowerCase();
     for (const pull of pulls) {
         const successful = successfulPulls.some(sp => sp.branch === pull.branch);
         const failed = failedPulls.some(fp => fp.branch === pull.branch);
-        const targetLabel = successful
-            ? customSuccessLabel
-            : failed
-                ? customFailureLabel
-                : undefined;
-        const hasSuccessfulLabel = pull.labels.some(label => label === customSuccessLabel);
-        const hasFailureLabel = pull.labels.some(label => label === customFailureLabel);
-        if (!targetLabel) {
+        if (!successful && !failed)
             continue;
-        }
-        if ((targetLabel === customSuccessLabel && hasSuccessfulLabel) ||
-            (targetLabel === customFailureLabel && hasFailureLabel)) {
-            continue;
-        }
-        if (hasSuccessfulLabel || hasFailureLabel) {
+        const targetLabel = successful ? customSuccessLabel : customFailureLabel;
+        const targetLabelNormalized = successful
+            ? normalizedSuccessLabel
+            : normalizedFailureLabel;
+        const opposingLabelNormalized = successful
+            ? normalizedFailureLabel
+            : normalizedSuccessLabel;
+        const hasTargetLabel = pull.labels.some(label => label?.toLowerCase() === targetLabelNormalized);
+        const opposingLabel = pull.labels.find(label => label?.toLowerCase() === opposingLabelNormalized);
+        if (opposingLabel) {
             core_debug(`remove label from pull request ${pull.number}`);
             await octokit.rest.issues.removeLabel({
                 owner,
                 repo,
                 issue_number: pull.number,
-                name: targetLabel === customSuccessLabel
-                    ? customFailureLabel
-                    : customSuccessLabel
+                name: opposingLabel
             });
         }
-        core_debug(`add label to pull request ${pull.number}`);
-        await octokit.rest.issues.addLabels({
-            owner,
-            repo,
-            issue_number: pull.number,
-            labels: [targetLabel]
-        });
+        if (!hasTargetLabel) {
+            core_debug(`add label to pull request ${pull.number}`);
+            await octokit.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: pull.number,
+                labels: [targetLabel]
+            });
+        }
     }
 };
 
