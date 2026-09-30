@@ -2,6 +2,7 @@ import {debug, getInput, info, setFailed, warning} from '@actions/core'
 import type {ExecOptions} from '@actions/exec'
 import {exec} from '@actions/exec'
 
+import {configureMergiraf, primeMergirafCache} from './mergiraf'
 import type {FailedPull, Pull} from './utils'
 import {
   createComments,
@@ -105,6 +106,14 @@ const autoDev = async (): Promise<void> => {
       branch: pull.head.ref,
       labels: pull.labels.map(l => l.name)
     }))
+  const useMergiraf = getInput('mergiraf') !== 'false'
+  if (useMergiraf) {
+    if (pulls.length > 0) {
+      await configureMergiraf()
+    } else if (process.env.GITHUB_REF === `refs/heads/${base}`) {
+      await primeMergirafCache()
+    }
+  }
 
   await exec('git fetch')
   await exec(`git config user.email "${email}"`)
@@ -131,7 +140,7 @@ const autoDev = async (): Promise<void> => {
     info('🎉 No Pull Requests found. Nothing to merge.')
   } else {
     debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`)
-    mergeResult = await merge(base, pulls, commitDate)
+    mergeResult = await merge(base, pulls, commitDate, useMergiraf)
     info(mergeResult.message)
   }
 
@@ -257,7 +266,8 @@ const extractConflictFiles = (output: string): string[] => {
 const merge = async (
   base: string,
   pulls: Pull[],
-  commitDate: string
+  commitDate: string,
+  retryWithoutMergiraf: boolean
 ): Promise<MergeResult> => {
   const success: Pull[] = []
   const failed: FailedPull[] = []
@@ -279,38 +289,65 @@ const merge = async (
 
   for (const pull of pulls) {
     let mergeOutput = ''
-    const preMergeHead = await execAndSlurp('git rev-parse HEAD')
-    try {
-      await exec(`git merge origin/${pull.branch}`, undefined, {
-        listeners: {
-          stdout: (data: Buffer) => {
-            mergeOutput += data.toString()
-          },
-          stderr: (data: Buffer) => {
-            mergeOutput += data.toString()
+    const preMergeHead = (await execAndSlurp('git rev-parse HEAD')).trim()
+    const tryMerge = async (disableMergiraf: boolean): Promise<boolean> => {
+      mergeOutput = ''
+      try {
+        await exec(`git merge origin/${pull.branch}`, undefined, {
+          env: disableMergiraf ? {...process.env, mergiraf: '0'} : undefined,
+          listeners: {
+            stdout: data => {
+              mergeOutput += data.toString()
+            },
+            stderr: data => {
+              mergeOutput += data.toString()
+            }
           }
-        }
-      })
-      success.push(pull)
-    } catch (error) {
-      info(
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        `encountered merge conflicts with branch "${pull.branch}", error: ${error}`
-      )
+        })
+        return true
+      } catch (error) {
+        info(
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          `merge attempt for branch "${pull.branch}" failed${disableMergiraf ? ' without Mergiraf' : ''}: ${error}`
+        )
+        return false
+      }
+    }
 
+    const restoreBeforeRetry = async (): Promise<void> => {
+      try {
+        await exec('git merge --abort')
+      } catch (error) {
+        debug(
+          `git merge --abort could not restore branch "${pull.branch}": ${String(error)}`
+        )
+        await exec('git reset --hard', [preMergeHead])
+      }
+    }
+
+    let merged = await tryMerge(false)
+    if (!merged && retryWithoutMergiraf) {
+      await restoreBeforeRetry()
+      info(`retrying branch "${pull.branch}" with Git's built-in merge driver`)
+      merged = await tryMerge(true)
+    }
+
+    if (!merged) {
       const conflictFiles = extractConflictFiles(mergeOutput)
       const conflictingFileToPulls = new Map<string, Pull[]>()
       for (const file of conflictFiles) {
         conflictingFileToPulls.set(file, fileToPulls.get(file) ?? [])
       }
 
-      await exec(`git merge --abort`)
+      await restoreBeforeRetry()
       failed.push({
         ...pull,
         conflictingFileToPulls
       })
       continue
     }
+
+    success.push(pull)
 
     // Record which files this PR's merge commit touched, so a later failing
     // merge can point at this PR as "merged ahead of you in this run."

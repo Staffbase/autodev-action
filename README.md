@@ -5,6 +5,12 @@
 
 This action merges commits from different pull requests that have been tagged with the label `dev` into the `dev` branch on your GitHub repository.
 
+Mergiraf is enabled by default for supported file types. Set the `mergiraf` input to `false` to use Git's regular merge behavior. If a Mergiraf-enabled merge attempt fails, AutoDev restores the pre-merge state and retries that PR once with Git's built-in merge behavior. If the retry also fails, that PR is marked failed and AutoDev continues rebuilding the remaining branches. Supported runners: Linux x64/arm64 (glibc), macOS x64/arm64, and Windows x64.
+
+The verified archive is stored in the repository's GitHub Actions cache, keyed by Mergiraf version, runner platform, and checksum. A cache miss downloads from Codeberg; later runs restore the archive and verify its checksum before extracting it. Runs on the configured base branch also prime the cache when there are no labeled PRs, so other branches can reuse it. Cache failures are non-fatal and fall back to a fresh download.
+
+The `Update Mergiraf` workflow checks Codeberg weekly and opens or updates a draft PR for a newer stable release. It refreshes every supported asset checksum and rebuilds `dist/`; missing assets or download failures stop the update. Review and merge the PR to adopt the release.
+
 ```yaml
 name: Autodev
 on:
@@ -22,7 +28,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          # The token of the user that should perform the merges. 
+          # The token of the user that should perform the merges.
           # This must be a personal access token with the necessary permissions
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           fetch-depth: 0
@@ -48,6 +54,7 @@ You can find all input options which are available for this action.
 | success_comment | Comment string that will be shown in the pull request on success. Only necessary if `comments` is enabled.                                                                                    | ''                     |
 | failure_comment | Comment string that will be shown in the pull request on failure. Only necessary if `comments` is enabled.                                                                                    | ''                     |
 | labels          | The GitHub action updates the labels inside every pull request for successful or failed merges to the dev branch.                                                                             | false                  |
+| mergiraf        | Enable syntax-aware merging for supported files. Set to `false` to disable.                                                                                                                   | true                   |
 | success_label   | Label string that will be shown on the Pull request on success. Only necessary if `labels` is enabled.                                                                                        | successful             |
 | failure_label   | Label string that will be shown on the Pull request on failure. Only necessary if `labels` is enabled.                                                                                        | failed                 |
 | user            | Name of the user which does the git commit.                                                                                                                                                   | AutoDev Action         |
@@ -87,6 +94,7 @@ Add a status label if the merge was successful or failed.
     success_label: 'successful'
     failure_label: 'failed'
 ```
+
 # Merge Conflict Reporting
 
 When a dev-labeled PR can't be merged into the dev branch, the action logs a summary like:

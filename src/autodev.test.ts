@@ -1,3 +1,4 @@
+import type {MockInstance} from 'vitest'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 import type {FailedPull} from './utils'
@@ -105,6 +106,39 @@ describe('updateLabels', () => {
     expect(addLabels).not.toHaveBeenCalled()
     expect(removeLabel).not.toHaveBeenCalled()
   })
+
+  it('removes a stale failure label when success already exists with different casing', async () => {
+    const addLabels = vi.fn()
+    const removeLabel = vi.fn()
+    const octokit = {
+      rest: {issues: {addLabels, removeLabel}}
+    } as unknown as Parameters<typeof updateLabels>[0]
+    const pull = {
+      sha: 'aaa',
+      number: 63,
+      branch: 'add-mcp-create-page-tool',
+      labels: ['dev', 'dev successful', 'dev failed']
+    }
+
+    await updateLabels(
+      octokit,
+      'owner',
+      'repo',
+      [pull],
+      [pull],
+      [],
+      'dev Successful',
+      'dev Failed'
+    )
+
+    expect(removeLabel).toHaveBeenCalledWith({
+      owner: 'owner',
+      repo: 'repo',
+      issue_number: 63,
+      name: 'dev failed'
+    })
+    expect(addLabels).not.toHaveBeenCalled()
+  })
 })
 
 vi.mock('@actions/core', () => ({
@@ -119,10 +153,16 @@ vi.mock('@actions/exec', () => ({
   exec: vi.fn()
 }))
 
+vi.mock('./mergiraf', () => ({
+  configureMergiraf: vi.fn().mockResolvedValue(undefined),
+  primeMergirafCache: vi.fn().mockResolvedValue(undefined)
+}))
+
 import {getInput, info, setFailed, warning} from '@actions/core'
 import {exec} from '@actions/exec'
 
 import autoDev from './autodev'
+import {configureMergiraf, primeMergirafCache} from './mergiraf'
 import type {PullsListResponseData} from './utils'
 import * as utils from './utils'
 
@@ -146,10 +186,12 @@ const stubRefSpecificExec = (extra?: Record<string, string>): void => {
 }
 
 describe('autodev', () => {
-  const labelsSpy = vi.spyOn(utils, 'updateLabels').mockResolvedValue()
-  const commentsSpy = vi.spyOn(utils, 'createComments').mockResolvedValue()
+  let labelsSpy: MockInstance<typeof utils.updateLabels>
+  let commentsSpy: MockInstance<typeof utils.createComments>
 
   beforeEach(() => {
+    labelsSpy = vi.spyOn(utils, 'updateLabels').mockResolvedValue()
+    commentsSpy = vi.spyOn(utils, 'createComments').mockResolvedValue()
     vi.spyOn(utils, 'getRepoString').mockReturnValue(
       '@staffbase/auto-dev-action'
     )
@@ -201,6 +243,142 @@ The following branches have been merged:
 
 The following branches failed to merge:
 `)
+  })
+
+  it('uses Git normal merges when Mergiraf is disabled', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main', mergiraf: 'false'})[input] || ''
+    )
+
+    await autoDev()
+
+    expect(configureMergiraf).not.toHaveBeenCalled()
+    expect(
+      vi
+        .mocked(exec)
+        .mock.calls.some(
+          ([command]) => command === 'git merge origin/feature-1'
+        )
+    ).toBe(true)
+  })
+
+  it('retries a fatal Mergiraf merge with Git and resets when abort is unavailable', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([
+      {
+        number: 4,
+        labels: [{name: 'dev'}],
+        head: {
+          ref: 'fallback-feature',
+          sha: '68767ad258cbc536826996ef881eaa797851fc11'
+        }
+      }
+    ] as PullsListResponseData)
+
+    let mergeAttempts = 0
+    let retryEnvironment: Record<string, string> | undefined
+    const commands: string[] = []
+    vi.mocked(exec).mockImplementation((command, args, options) => {
+      commands.push(command)
+      if (command === 'git rev-parse HEAD') {
+        options?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+      } else if (command === 'git merge origin/fallback-feature') {
+        mergeAttempts += 1
+        if (mergeAttempts === 1) {
+          options?.listeners?.stderr?.(
+            Buffer.from('fatal: could not fetch promised object\n')
+          )
+          return Promise.reject(new Error('promisor fetch failed'))
+        }
+        retryEnvironment = options?.env
+      } else if (command === 'git merge --abort') {
+        return Promise.reject(new Error('There is no merge to abort'))
+      } else if (command === 'git reset --hard') {
+        expect(args).toEqual([REMOTE_HEAD_SHA])
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(mergeAttempts).toBe(2)
+    expect(retryEnvironment?.mergiraf).toBe('0')
+    expect(retryEnvironment?.PATH).toBe(process.env.PATH)
+    expect(commands).toContain('git reset --hard')
+    expect(setFailed).not.toHaveBeenCalled()
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining('- PR 4 fallback-feature (68767ad)')
+    )
+  })
+
+  it('records a PR failure when the ORT retry also fails and merge abort is unavailable', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([
+      {
+        number: 5,
+        labels: [{name: 'dev'}],
+        head: {
+          ref: 'ort-conflict',
+          sha: '78767ad258cbc536826996ef881eaa797851fc12'
+        }
+      }
+    ] as PullsListResponseData)
+
+    let mergeAttempts = 0
+    let resets = 0
+    vi.mocked(exec).mockImplementation((command, args, options) => {
+      if (command === 'git rev-parse HEAD') {
+        options?.listeners?.stdout?.(Buffer.from(`${REMOTE_HEAD_SHA}\n`))
+      } else if (command === 'git merge origin/ort-conflict') {
+        mergeAttempts += 1
+        options?.listeners?.stderr?.(
+          Buffer.from(
+            mergeAttempts === 1
+              ? 'fatal: Mergiraf merge failed\n'
+              : 'CONFLICT (content): Merge conflict in conflict.go\n'
+          )
+        )
+        return Promise.reject(new Error('merge failed'))
+      } else if (command === 'git merge --abort') {
+        return Promise.reject(new Error('There is no merge to abort'))
+      } else if (command === 'git reset --hard') {
+        resets += 1
+        expect(args).toEqual([REMOTE_HEAD_SHA])
+      }
+      return Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(mergeAttempts).toBe(2)
+    expect(resets).toBe(2)
+    expect(setFailed).not.toHaveBeenCalled()
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining('- PR 5 ort-conflict (78767ad)')
+    )
+  })
+
+  it('primes the shared Mergiraf cache on the base branch when there are no labeled PRs', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([])
+    const originalRef = process.env.GITHUB_REF
+    process.env.GITHUB_REF = 'refs/heads/main'
+
+    try {
+      await autoDev()
+    } finally {
+      if (originalRef === undefined) delete process.env.GITHUB_REF
+      else process.env.GITHUB_REF = originalRef
+    }
+
+    expect(primeMergirafCache).toHaveBeenCalledOnce()
+    expect(configureMergiraf).not.toHaveBeenCalled()
   })
 
   it('should add successful comments', async () => {

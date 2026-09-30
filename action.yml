@@ -46,6 +46,10 @@ inputs:
     required: false
     description: 'Label string that will be add on the Pull request on failure.'
     default: 'failed'
+  mergiraf:
+    required: false
+    default: 'true'
+    description: 'Enable Mergiraf syntax-aware merging for supported files.'
   user:
     required: false
     default: 'AutoDev Action'

@@ -1,0 +1,65 @@
+name: Update Mergiraf
+
+on:
+  schedule:
+    - cron: '19 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-mergiraf
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Set up mise
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
+      - name: Check Codeberg for a new stable release
+        id: update
+        run: node --experimental-strip-types src/mergiraf-release-updater.ts
+
+      - name: Install dependencies
+        if: steps.update.outputs.changed == 'true'
+        run: mise run install
+
+      - name: Test and rebuild the action
+        if: steps.update.outputs.changed == 'true'
+        run: mise run all
+
+      - name: Open or update draft PR
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          MERGIRAF_VERSION: ${{ steps.update.outputs.version }}
+        run: |
+          set -euo pipefail
+          branch=automation/update-mergiraf
+          title="chore: update Mergiraf to ${MERGIRAF_VERSION}"
+          body="Automated update from Codeberg's latest stable Mergiraf release. Review the release and generated platform checksums before merging."
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -B "$branch"
+          git add src/mergiraf-release.json dist/
+          git diff --cached --quiet && exit 0
+          git commit -m "$title"
+          git push --force origin "HEAD:${branch}"
+
+          pull_request=$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty')
+          if [ -n "$pull_request" ]; then
+            gh pr edit "$pull_request" --title "$title" --body "$body"
+          else
+            gh pr create --draft --base "$BASE_BRANCH" --head "$branch" --title "$title" --body "$body"
+          fi
