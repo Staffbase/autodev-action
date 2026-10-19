@@ -163,6 +163,16 @@ export const createComments = async (
   }
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const isMissingLabelError = (error: unknown): boolean =>
+  isRecord(error) &&
+  error.status === 404 &&
+  isRecord(error.response) &&
+  isRecord(error.response.data) &&
+  error.response.data.message === 'Label does not exist'
+
 export const updateLabels = async (
   octokit: OctokitClient,
   owner: string,
@@ -200,12 +210,17 @@ export const updateLabels = async (
 
     if (opposingLabel) {
       debug(`remove label from pull request ${pull.number}`)
-      await octokit.rest.issues.removeLabel({
-        owner,
-        repo,
-        issue_number: pull.number,
-        name: opposingLabel
-      })
+      try {
+        await octokit.rest.issues.removeLabel({
+          owner,
+          repo,
+          issue_number: pull.number,
+          name: opposingLabel
+        })
+      } catch (error) {
+        if (!isMissingLabelError(error)) throw error
+        debug(`label already absent from pull request ${pull.number}`)
+      }
     }
 
     if (!hasTargetLabel) {

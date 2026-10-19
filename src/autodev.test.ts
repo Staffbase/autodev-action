@@ -80,7 +80,7 @@ describe('commentFail', () => {
 })
 
 // ---------------------------------------------------------------------------
-// updateLabels — skipped PR (neither successful nor failed)
+// updateLabels
 // ---------------------------------------------------------------------------
 describe('updateLabels', () => {
   it('does not add or remove any label for a PR that is in pulls but neither successful nor failed', async () => {
@@ -138,6 +138,144 @@ describe('updateLabels', () => {
       name: 'dev failed'
     })
     expect(addLabels).not.toHaveBeenCalled()
+  })
+
+  it.each(['successful', 'failed'])(
+    'continues adding the %s label and updating later PRs when the opposing label is already absent',
+    async outcome => {
+      const addLabels = vi.fn().mockResolvedValue(undefined)
+      const removeLabel = vi.fn().mockRejectedValue({
+        status: 404,
+        response: {data: {message: 'Label does not exist'}}
+      })
+      const octokit = {
+        rest: {issues: {addLabels, removeLabel}}
+      } as unknown as Parameters<typeof updateLabels>[0]
+      const opposingLabel =
+        outcome === 'successful' ? 'dev Failed' : 'dev Successful'
+      const pull = {
+        sha: 'aaa',
+        number: 1,
+        branch: 'feature-1',
+        labels: [opposingLabel]
+      }
+      const laterPull = {
+        sha: 'bbb',
+        number: 2,
+        branch: 'feature-2',
+        labels: []
+      }
+
+      await updateLabels(
+        octokit,
+        'owner',
+        'repo',
+        [pull, laterPull],
+        outcome === 'successful' ? [pull, laterPull] : [laterPull],
+        outcome === 'failed'
+          ? [{...pull, conflictingFileToPulls: new Map()}]
+          : [],
+        'dev successful',
+        'dev failed'
+      )
+
+      expect(removeLabel).toHaveBeenCalledExactlyOnceWith({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 1,
+        name: opposingLabel
+      })
+      expect(addLabels.mock.calls).toEqual([
+        [
+          {
+            owner: 'owner',
+            repo: 'repo',
+            issue_number: 1,
+            labels: [`dev ${outcome}`]
+          }
+        ],
+        [
+          {
+            owner: 'owner',
+            repo: 'repo',
+            issue_number: 2,
+            labels: ['dev successful']
+          }
+        ]
+      ])
+    }
+  )
+
+  it.each([
+    {status: 401, response: {data: {message: 'Bad credentials'}}},
+    {status: 403, response: {data: {message: 'Forbidden'}}},
+    {status: 404, response: {data: {message: 'Not Found'}}},
+    {status: 404, message: 'Label does not exist'},
+    {status: 404, response: null},
+    {status: 404, response: {data: null}},
+    {status: 422, response: {data: {message: 'Label does not exist'}}},
+    {status: 500, response: {data: {message: 'Label does not exist'}}},
+    new Error('Network failure'),
+    null
+  ])('propagates unrelated removal errors: %j', async error => {
+    const addLabels = vi.fn()
+    const removeLabel = vi.fn().mockRejectedValue(error)
+    const octokit = {
+      rest: {issues: {addLabels, removeLabel}}
+    } as unknown as Parameters<typeof updateLabels>[0]
+    const pull = {
+      sha: 'aaa',
+      number: 1,
+      branch: 'feature-1',
+      labels: ['failed']
+    }
+
+    await expect(
+      updateLabels(
+        octokit,
+        'owner',
+        'repo',
+        [pull],
+        [pull],
+        [],
+        'successful',
+        'failed'
+      )
+    ).rejects.toBe(error)
+    expect(addLabels).not.toHaveBeenCalled()
+  })
+
+  it('does not suppress label addition errors', async () => {
+    const error = {
+      status: 404,
+      response: {data: {message: 'Label does not exist'}}
+    }
+    const addLabels = vi.fn().mockRejectedValue(error)
+    const removeLabel = vi.fn().mockResolvedValue(undefined)
+    const octokit = {
+      rest: {issues: {addLabels, removeLabel}}
+    } as unknown as Parameters<typeof updateLabels>[0]
+    const pull = {
+      sha: 'aaa',
+      number: 1,
+      branch: 'feature-1',
+      labels: ['failed']
+    }
+
+    await expect(
+      updateLabels(
+        octokit,
+        'owner',
+        'repo',
+        [pull],
+        [pull],
+        [],
+        'successful',
+        'failed'
+      )
+    ).rejects.toBe(error)
+    expect(removeLabel).toHaveBeenCalledOnce()
+    expect(addLabels).toHaveBeenCalledOnce()
   })
 })
 

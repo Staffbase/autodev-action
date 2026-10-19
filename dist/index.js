@@ -102392,6 +102392,12 @@ const createComments = async (octokit, owner, repo, base, pulls, successfulPulls
         }
     }
 };
+const isRecord = (value) => typeof value === 'object' && value !== null;
+const isMissingLabelError = (error) => isRecord(error) &&
+    error.status === 404 &&
+    isRecord(error.response) &&
+    isRecord(error.response.data) &&
+    error.response.data.message === 'Label does not exist';
 const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, failedPulls, customSuccessLabel, customFailureLabel) => {
     info('update labels');
     const normalizedSuccessLabel = customSuccessLabel.toLowerCase();
@@ -102412,12 +102418,19 @@ const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, failed
         const opposingLabel = pull.labels.find(label => label?.toLowerCase() === opposingLabelNormalized);
         if (opposingLabel) {
             core_debug(`remove label from pull request ${pull.number}`);
-            await octokit.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: pull.number,
-                name: opposingLabel
-            });
+            try {
+                await octokit.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number: pull.number,
+                    name: opposingLabel
+                });
+            }
+            catch (error) {
+                if (!isMissingLabelError(error))
+                    throw error;
+                core_debug(`label already absent from pull request ${pull.number}`);
+            }
         }
         if (!hasTargetLabel) {
             core_debug(`add label to pull request ${pull.number}`);
