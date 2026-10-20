@@ -401,6 +401,22 @@ The following branches failed to merge:
     expect(labelsSpy).toHaveBeenCalled()
   })
 
+  it('builds from the fetched remote base, not a stale local base checkout', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([])
+
+    await autoDev()
+
+    const commands = vi.mocked(exec).mock.calls.map(([command]) => command)
+    expect(commands).toContain('git checkout -B main origin/main')
+    expect(commands).not.toContain('git checkout main')
+    expect(commands.indexOf('git checkout -B main origin/main')).toBeLessThan(
+      commands.indexOf('git checkout -B dev')
+    )
+  })
+
   it('should push with --force-with-lease pinned to the observed remote sha', async () => {
     vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''
