@@ -33,7 +33,7 @@
     "@actions/github": "^9.1.1",
     "@babel/parser": "^8.0.7",
     "@eslint/js": "^10.0.1",
-    "@octokit/openapi-types": "^28.0.0",
+    "@octokit/openapi-types": "^29.0.1",
     "@types/node": "^26.6.5",
     "@vercel/ncc": "^0.45.0",
     "eslint": "^10.12.0",
