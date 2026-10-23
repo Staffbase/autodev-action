@@ -1,11 +1,11 @@
 import {debug, info} from '@actions/core'
 import {getOctokit} from '@actions/github'
-import type {components} from '@octokit/openapi-types'
-
-export type PullsListResponseData =
-  components['schemas']['pull-request-simple'][]
 
 type OctokitClient = ReturnType<typeof getOctokit>
+
+export type PullsListResponseData = Awaited<
+  ReturnType<OctokitClient['rest']['pulls']['list']>
+>['data']
 
 export interface Pull {
   sha: string
