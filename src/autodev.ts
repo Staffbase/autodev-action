@@ -133,9 +133,10 @@ const autoDev = async (): Promise<void> => {
   )
   let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || ''
 
-  // Reset the local ${base} to the fetched remote tip. For a push to ${base}, the workflow checkout
-  // leaves the local ${base} at the triggering commit. A run that starts late (or is re-run) would
-  // otherwise rebuild ${branch} from that stale commit and drop everything merged to ${base} since.
+  // Reset the local ${base} to the fetched remote tip. For a push to ${base},
+  // the workflow checkout leaves the local ${base} at the triggering commit.
+  // A run that starts late (or is re-run) would otherwise rebuild ${branch}
+  // from that stale commit and drop everything merged to ${base} since.
   await exec(`git checkout -B ${base} origin/${base}`)
 
   let mergeResult: MergeResult | undefined
@@ -442,7 +443,11 @@ const merge = async (
   await exec(`git reset origin/${base}`)
   await exec('git add -A')
 
-  await exec('git commit -m', [message], overrideDate)
+  // --allow-empty: the merged PRs can leave the tree equal to origin/${base},
+  // e.g. when a PR was merged into ${base} after fetchPulls but before
+  // `git fetch`. The commit must still be created, otherwise `git commit`
+  // fails with "nothing to commit" and ${branch} is not rebuilt in this run.
+  await exec('git commit --allow-empty -m', [message], overrideDate)
   // replace with graft commit so we can preserve commit parents
   await exec(
     `git replace --graft HEAD origin/${base}`,

@@ -102733,9 +102733,10 @@ const autoDev = async () => {
     // run would simply observe (and adopt) the newer SHA as its expectation.
     const initialBranchSnapshot = await execAndSlurp(`git ls-remote --heads origin ${branch}`);
     let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || '';
-    // Reset the local ${base} to the fetched remote tip. For a push to ${base}, the workflow checkout
-    // leaves the local ${base} at the triggering commit. A run that starts late (or is re-run) would
-    // otherwise rebuild ${branch} from that stale commit and drop everything merged to ${base} since.
+    // Reset the local ${base} to the fetched remote tip. For a push to ${base},
+    // the workflow checkout leaves the local ${base} at the triggering commit.
+    // A run that starts late (or is re-run) would otherwise rebuild ${branch}
+    // from that stale commit and drop everything merged to ${base} since.
     await exec_exec(`git checkout -B ${base} origin/${base}`);
     let mergeResult;
     if (pulls.length === 0) {
@@ -102978,7 +102979,11 @@ const autodev_merge = async (base, pulls, commitDate, retryWithoutMergiraf) => {
     }
     await exec_exec(`git reset origin/${base}`);
     await exec_exec('git add -A');
-    await exec_exec('git commit -m', [message], overrideDate);
+    // --allow-empty: the merged PRs can leave the tree equal to origin/${base},
+    // e.g. when a PR was merged into ${base} after fetchPulls but before
+    // `git fetch`. The commit must still be created, otherwise `git commit`
+    // fails with "nothing to commit" and ${branch} is not rebuilt in this run.
+    await exec_exec('git commit --allow-empty -m', [message], overrideDate);
     // replace with graft commit so we can preserve commit parents
     await exec_exec(`git replace --graft HEAD origin/${base}`, success.map(p => `origin/${p.branch}`), overrideDate);
     const rev = await execAndSlurp('git rev-parse HEAD');

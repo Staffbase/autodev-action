@@ -417,6 +417,35 @@ The following branches failed to merge:
     )
   })
 
+  it('still pushes dev when the merged PRs leave the base tree unchanged', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    // Behave like git with an unchanged tree: a plain commit has nothing to
+    // commit, only an --allow-empty commit succeeds.
+    const refSpecificExec = vi.mocked(exec).getMockImplementation()
+    vi.mocked(exec).mockImplementation((command, args, options) => {
+      if (
+        command.startsWith('git commit') &&
+        !command.includes('--allow-empty')
+      ) {
+        return Promise.reject(
+          new Error('nothing to commit, working tree clean')
+        )
+      }
+      return refSpecificExec?.(command, args, options) ?? Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(exec).toHaveBeenCalledWith(
+      `git push --force-with-lease=refs/heads/dev:${REMOTE_DEV_SHA} -u origin refs/heads/dev`,
+      undefined,
+      expect.objectContaining({ignoreReturnCode: true})
+    )
+    expect(setFailed).not.toHaveBeenCalled()
+  })
+
   it('should push with --force-with-lease pinned to the observed remote sha', async () => {
     vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''

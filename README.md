@@ -40,6 +40,18 @@ jobs:
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 ```
 
+# How the dev branch is built
+
+Every run rebuilds `branch` (default `dev`) from scratch:
+
+1. List the open pull requests that carry `label`.
+2. Fetch the repository and reset the local `base` to `origin/<base>`. The run builds on the `base` tip at fetch time, even when it was triggered by an older commit or started late.
+3. Merge each labeled pull request. A pull request that fails to merge is left out and reported (see [Merge Conflict Reporting](#merge-conflict-reporting)).
+4. Commit the result as one `AutoDev Merge` commit whose parents are `base` and the merged branches. If no pull request was merged, `branch` is set to the `base` tip.
+5. Force-push `branch` with a lease on the tip seen before the merges, but only if the result differs from `origin/<branch>`. If another run pushed in the meantime, this run skips its push with a warning, and the next run rebuilds the branch. Any other push error fails the run.
+
+If `branch` doesn't exist yet, the run first creates it from `base`. The merges need the full history, so check out with `fetch-depth: 0`.
+
 # All options
 
 You can find all input options which are available for this action.
