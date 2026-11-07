@@ -148,10 +148,13 @@ const autoDev = async (): Promise<void> => {
     info(mergeResult.message)
   }
 
-  // check if the branch exists, if not create it from base
+  // check if the branch exists, if not create it from the current HEAD: the
+  // grafted AutoDev merge commit, or the ${base} tip when nothing was merged.
+  // The local ${base} holds the AutoDev commit before the graft, so creating
+  // the branch from it would leave out the merged pull requests as parents.
   if (!initialBranchSnapshot) {
-    info(`Branch ${branch} does not exist. Creating branch from ${base}.`)
-    await exec(`git checkout -b ${branch} ${base}`)
+    info(`Branch ${branch} does not exist. Creating it.`)
+    await exec(`git checkout -b ${branch}`)
     await exec(`git push -u origin refs/heads/${branch}`)
     // Branch was just created in this run; the lease should expect the SHA
     // we just pushed, not an empty ref.

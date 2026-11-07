@@ -50,7 +50,7 @@ Every run rebuilds `branch` (default `dev`) from scratch:
 4. Commit the result as one `AutoDev Merge` commit whose parents are `base` and the merged branches. If no pull request was merged, `branch` is set to the `base` tip.
 5. Force-push `branch` with a lease on the tip seen before the merges, but only if the result differs from `origin/<branch>`. If another run pushed in the meantime, this run skips its push with a warning, and the next run rebuilds the branch. Any other push error fails the run.
 
-If `branch` doesn't exist yet, the run first creates it from `base`. The merges need the full history, so check out with `fetch-depth: 0`.
+If `branch` doesn't exist yet, the run creates it from the result of steps 3 and 4. The merges need the full history, so check out with `fetch-depth: 0`.
 
 # All options
 

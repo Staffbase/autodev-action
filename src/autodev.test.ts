@@ -446,6 +446,23 @@ The following branches failed to merge:
     expect(setFailed).not.toHaveBeenCalled()
   })
 
+  it('creates a missing dev branch from the merge result, not from the base', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    stubRefSpecificExec({'git ls-remote --heads origin dev': ''})
+
+    await autoDev()
+
+    const commands = vi.mocked(exec).mock.calls.map(([command]) => command)
+    expect(commands).toContain('git checkout -b dev')
+    expect(commands).not.toContain('git checkout -b dev main')
+    expect(commands.indexOf('git commit --allow-empty -m')).toBeLessThan(
+      commands.indexOf('git checkout -b dev')
+    )
+    expect(commands).toContain('git push -u origin refs/heads/dev')
+  })
+
   it('should push with --force-with-lease pinned to the observed remote sha', async () => {
     vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''
