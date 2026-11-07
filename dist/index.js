@@ -102733,7 +102733,10 @@ const autoDev = async () => {
     // run would simply observe (and adopt) the newer SHA as its expectation.
     const initialBranchSnapshot = await execAndSlurp(`git ls-remote --heads origin ${branch}`);
     let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || '';
-    await exec_exec(`git checkout ${base}`);
+    // Reset the local ${base} to the fetched remote tip. For a push to ${base}, the workflow checkout
+    // leaves the local ${base} at the triggering commit. A run that starts late (or is re-run) would
+    // otherwise rebuild ${branch} from that stale commit and drop everything merged to ${base} since.
+    await exec_exec(`git checkout -B ${base} origin/${base}`);
     let mergeResult;
     if (pulls.length === 0) {
         info('🎉 No Pull Requests found. Nothing to merge.');

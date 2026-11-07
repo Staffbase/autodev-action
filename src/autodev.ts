@@ -133,7 +133,10 @@ const autoDev = async (): Promise<void> => {
   )
   let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || ''
 
-  await exec(`git checkout ${base}`)
+  // Reset the local ${base} to the fetched remote tip. For a push to ${base}, the workflow checkout
+  // leaves the local ${base} at the triggering commit. A run that starts late (or is re-run) would
+  // otherwise rebuild ${branch} from that stale commit and drop everything merged to ${base} since.
+  await exec(`git checkout -B ${base} origin/${base}`)
 
   let mergeResult: MergeResult | undefined
   if (pulls.length === 0) {
