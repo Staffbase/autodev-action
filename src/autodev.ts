@@ -97,6 +97,22 @@ const autoDev = async (): Promise<void> => {
         )
       : Promise.resolve()
 
+  // Snapshot origin/${branch} at the start of the run. This SHA becomes the
+  // --force-with-lease expectation for the final push: if a concurrent run
+  // advances origin/${branch} while we are working, our push must abort
+  // instead of overwriting the newer tip with our stale build. Capturing it
+  // immediately before the push would defeat the guard, because the stale
+  // run would simply observe (and adopt) the newer SHA as its expectation.
+  //
+  // Take it before listing the pull requests and fetching ${base}: any push
+  // that lands before this snapshot came from a run that fetched earlier, so
+  // a push that passes the lease never replaces a build of a newer ${base}
+  // or a newer pull request list.
+  const initialBranchSnapshot = await execAndSlurp(
+    `git ls-remote --heads origin ${branch}`
+  )
+  let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || ''
+
   const allPulls = await fetchPulls(octokit, owner, repo)
   const pulls = allPulls
     .filter(pull => pull.labels.some(l => l.name === label))
@@ -121,17 +137,6 @@ const autoDev = async (): Promise<void> => {
   const commitDate = await execAndSlurp(
     `git show -s --format='%ci' origin/${base}`
   )
-
-  // Snapshot origin/${branch} at the start of the run. This SHA becomes the
-  // --force-with-lease expectation for the final push: if a concurrent run
-  // advances origin/${branch} while we are working, our push must abort
-  // instead of overwriting the newer tip with our stale build. Capturing it
-  // immediately before the push would defeat the guard, because the stale
-  // run would simply observe (and adopt) the newer SHA as its expectation.
-  const initialBranchSnapshot = await execAndSlurp(
-    `git ls-remote --heads origin ${branch}`
-  )
-  let initialRemoteSha = initialBranchSnapshot.split(/\s+/)[0] || ''
 
   // Reset the local ${base} to the fetched remote tip. For a push to ${base},
   // the workflow checkout leaves the local ${base} at the triggering commit.

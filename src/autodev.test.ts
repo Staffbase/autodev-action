@@ -446,6 +446,27 @@ The following branches failed to merge:
     expect(setFailed).not.toHaveBeenCalled()
   })
 
+  it('takes the lease snapshot before listing PRs and fetching the base', async () => {
+    // If the snapshot came after the fetch, a run with an older base could
+    // adopt a newer run's push as its lease and overwrite it.
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+
+    await autoDev()
+
+    const execMock = vi.mocked(exec).mock
+    const callOrder = (command: string): number =>
+      execMock.invocationCallOrder[
+        execMock.calls.findIndex(([called]) => called === command)
+      ]
+    const snapshot = callOrder('git ls-remote --heads origin dev')
+    expect(snapshot).toBeLessThan(
+      vi.mocked(utils.fetchPulls).mock.invocationCallOrder[0]
+    )
+    expect(snapshot).toBeLessThan(callOrder('git fetch'))
+  })
+
   it('creates a missing dev branch from the merge result, not from the base', async () => {
     vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''
