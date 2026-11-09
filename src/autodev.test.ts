@@ -401,6 +401,89 @@ The following branches failed to merge:
     expect(labelsSpy).toHaveBeenCalled()
   })
 
+  it('builds from the fetched remote base, not a stale local base checkout', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue([])
+
+    await autoDev()
+
+    const commands = vi.mocked(exec).mock.calls.map(([command]) => command)
+    expect(commands).toContain('git checkout -B main origin/main')
+    expect(commands).not.toContain('git checkout main')
+    expect(commands.indexOf('git checkout -B main origin/main')).toBeLessThan(
+      commands.indexOf('git checkout -B dev')
+    )
+  })
+
+  it('still pushes dev when the merged PRs leave the base tree unchanged', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    // Behave like git with an unchanged tree: a plain commit has nothing to
+    // commit, only an --allow-empty commit succeeds.
+    const refSpecificExec = vi.mocked(exec).getMockImplementation()
+    vi.mocked(exec).mockImplementation((command, args, options) => {
+      if (
+        command.startsWith('git commit') &&
+        !command.includes('--allow-empty')
+      ) {
+        return Promise.reject(
+          new Error('nothing to commit, working tree clean')
+        )
+      }
+      return refSpecificExec?.(command, args, options) ?? Promise.resolve(0)
+    })
+
+    await autoDev()
+
+    expect(exec).toHaveBeenCalledWith(
+      `git push --force-with-lease=refs/heads/dev:${REMOTE_DEV_SHA} -u origin refs/heads/dev`,
+      undefined,
+      expect.objectContaining({ignoreReturnCode: true})
+    )
+    expect(setFailed).not.toHaveBeenCalled()
+  })
+
+  it('takes the lease snapshot before listing PRs and fetching the base', async () => {
+    // If the snapshot came after the fetch, a run with an older base could
+    // adopt a newer run's push as its lease and overwrite it.
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+
+    await autoDev()
+
+    const execMock = vi.mocked(exec).mock
+    const callOrder = (command: string): number =>
+      execMock.invocationCallOrder[
+        execMock.calls.findIndex(([called]) => called === command)
+      ]
+    const snapshot = callOrder('git ls-remote --heads origin dev')
+    expect(snapshot).toBeLessThan(
+      vi.mocked(utils.fetchPulls).mock.invocationCallOrder[0]
+    )
+    expect(snapshot).toBeLessThan(callOrder('git fetch'))
+  })
+
+  it('creates a missing dev branch from the merge result, not from the base', async () => {
+    vi.mocked(getInput).mockImplementation(
+      input => ({token: 'token', base: 'main'})[input] || ''
+    )
+    stubRefSpecificExec({'git ls-remote --heads origin dev': ''})
+
+    await autoDev()
+
+    const commands = vi.mocked(exec).mock.calls.map(([command]) => command)
+    expect(commands).toContain('git checkout -b dev')
+    expect(commands).not.toContain('git checkout -b dev main')
+    expect(commands.indexOf('git commit --allow-empty -m')).toBeLessThan(
+      commands.indexOf('git checkout -b dev')
+    )
+    expect(commands).toContain('git push -u origin refs/heads/dev')
+  })
+
   it('should push with --force-with-lease pinned to the observed remote sha', async () => {
     vi.mocked(getInput).mockImplementation(
       input => ({token: 'token', base: 'main'})[input] || ''
