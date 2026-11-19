@@ -103004,6 +103004,22 @@ const autodev_merge = async (base, pulls, commitDate, retryWithoutMergiraf, resu
             relativePath.startsWith(`..${external_node_path_namespaceObject.sep}`)) {
             throw new Error('results_file must name a file inside the repository');
         }
+        // Merged PRs can introduce symlinks; lexical containment is not enough.
+        let component = root;
+        for (const segment of relativePath.split(external_node_path_namespaceObject.sep)) {
+            component = (0,external_node_path_namespaceObject.resolve)(component, segment);
+            try {
+                if ((await (0,promises_namespaceObject.lstat)(component)).isSymbolicLink()) {
+                    throw new Error('results_file must not contain symlinks');
+                }
+            }
+            catch (error) {
+                // A missing component also means every descendant is absent.
+                if (error.code === 'ENOENT')
+                    break;
+                throw error;
+            }
+        }
         await (0,promises_namespaceObject.mkdir)((0,external_node_path_namespaceObject.dirname)(path), { recursive: true });
         await (0,promises_namespaceObject.writeFile)(path, `${JSON.stringify(success.map(({ branch, sha }) => ({ branch, sha })), null, 2)}\n`);
         // Include the report even when its path is ignored. Do not publish if this fails.

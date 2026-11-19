@@ -1,7 +1,15 @@
 import {execFileSync} from 'node:child_process'
-import {mkdtemp, rm, writeFile} from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile
+} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
-import {join} from 'node:path'
+import {dirname, join, resolve} from 'node:path'
 
 import type {MockInstance} from 'vitest'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
@@ -1281,6 +1289,51 @@ describe('autodev committed results (real Git)', () => {
         'results_file must name a file inside the repository'
       )
 
+      expect(git(['rev-parse', 'dev'], remote)).toBe(baseSha)
+      expect(utils.createComments).not.toHaveBeenCalled()
+      expect(utils.updateLabels).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
+    ['external target', 'report.json', '../victim', true],
+    ['dangling target', 'report.json', '../victim', false],
+    ['internal target', 'report.json', 'results.json', true],
+    ['external ancestor', 'reports/link', '../../victim', true],
+    ['dangling ancestor', 'reports/link', '../../victim', false],
+    ['internal ancestor', 'reports/link', '../safe', true]
+  ])(
+    'rejects a symlink report path: %s',
+    async (scenario, link, destination, exists) => {
+      const ancestor = scenario.endsWith('ancestor')
+      const linkPath = join(work, link)
+      const target = resolve(dirname(linkPath), destination)
+      const victim = ancestor ? join(target, 'victim.txt') : target
+      await mkdir(dirname(linkPath), {recursive: true})
+      if (exists) {
+        if (ancestor) await mkdir(target, {recursive: true})
+        await writeFile(victim, 'untouched\n')
+      }
+      git(['checkout', '-b', 'symlink-feature', 'main'])
+      await symlink(destination, linkPath)
+      git(['add', '.'])
+      git(['commit', '-m', 'Add report symlink'])
+      git(['push', 'origin', 'symlink-feature'])
+      git(['checkout', 'main'])
+      vi.mocked(utils.fetchPulls).mockResolvedValue(pulls('symlink-feature'))
+      inputs.results_file = ancestor ? `${link}/nested/results.json` : link
+
+      await expect(autoDev()).rejects.toThrow(
+        'results_file must not contain symlinks'
+      )
+
+      if (exists) expect(await readFile(victim, 'utf8')).toBe('untouched\n')
+      else await expect(lstat(target)).rejects.toMatchObject({code: 'ENOENT'})
+      if (ancestor && exists) {
+        await expect(lstat(join(target, 'nested'))).rejects.toMatchObject({
+          code: 'ENOENT'
+        })
+      }
       expect(git(['rev-parse', 'dev'], remote)).toBe(baseSha)
       expect(utils.createComments).not.toHaveBeenCalled()
       expect(utils.updateLabels).not.toHaveBeenCalled()

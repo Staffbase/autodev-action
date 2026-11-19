@@ -132,6 +132,8 @@ Each `sha` is the full fetched branch-tip hash actually merged, not the potentia
 
 The path must be relative to and inside the checked-out repository. Missing parent directories are created, ignored report paths are included, and any previous report at that path is overwritten. Report writing or staging failures stop the run before publishing. The report is part of the final `AutoDev Merge` commit, never a separate follow-up commit.
 
+The report path and its parent directories inside the checkout must not be symlinks, including dangling links. These paths are rejected before creating directories or writing the report.
+
 When no PRs carry the label or all merges fail, an enabled report contains `[]` in a results-only commit above the base tip. With `results_file` omitted or empty, no report is generated or modified, and the existing no-merge behavior is unchanged.
 
 # Merge Conflict Reporting

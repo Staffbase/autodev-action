@@ -1,4 +1,4 @@
-import {mkdir, writeFile} from 'node:fs/promises'
+import {lstat, mkdir, writeFile} from 'node:fs/promises'
 import {dirname, isAbsolute, relative, resolve, sep} from 'node:path'
 
 import {debug, getInput, info, setFailed, warning} from '@actions/core'
@@ -477,6 +477,20 @@ const merge = async (
       relativePath.startsWith(`..${sep}`)
     ) {
       throw new Error('results_file must name a file inside the repository')
+    }
+    // Merged PRs can introduce symlinks; lexical containment is not enough.
+    let component = root
+    for (const segment of relativePath.split(sep)) {
+      component = resolve(component, segment)
+      try {
+        if ((await lstat(component)).isSymbolicLink()) {
+          throw new Error('results_file must not contain symlinks')
+        }
+      } catch (error) {
+        // A missing component also means every descendant is absent.
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') break
+        throw error
+      }
     }
     await mkdir(dirname(path), {recursive: true})
     await writeFile(
