@@ -47,7 +47,7 @@ Every run rebuilds `branch` (default `dev`) from scratch:
 1. List the open pull requests that carry `label`.
 2. Fetch the repository and reset the local `base` to `origin/<base>`. The run builds on the `base` tip at fetch time, even when it was triggered by an older commit or started late.
 3. Merge each labeled pull request. A pull request that fails to merge is left out and reported (see [Merge Conflict Reporting](#merge-conflict-reporting)).
-4. Commit the result as one `AutoDev Merge` commit whose parents are `base` and the merged branches. If no pull request was merged, `branch` is set to the `base` tip.
+4. Commit the result as one `AutoDev Merge` commit whose parents are `base` and the merged branches. When `results_file` is configured, include the JSON report in this commit. If no pull request was merged, `branch` is set to the `base` tip unless `results_file` is configured; then a results-only commit containing `[]` is created above `base`.
 5. Force-push `branch` with a lease on the tip seen at the start of the run (before step 1), but only if the result differs from `origin/<branch>`. If another run pushed in the meantime, this run skips its push with a warning, and the next run rebuilds the branch. Any other push error fails the run.
 
 If `branch` doesn't exist yet, the run creates it from the result of steps 3 and 4. The merges need the full history, so check out with `fetch-depth: 0`.
@@ -62,6 +62,7 @@ You can find all input options which are available for this action.
 | base            | This is the base branch. The merge history originates from this branch.                                                                                                                       | main                   |
 | branch          | The branch the action will merge the pull requests to.                                                                                                                                        | dev                    |
 | label           | The label where the action will be triggered.                                                                                                                                                 | dev                    |
+| results_file    | Repository-relative JSON file listing successfully merged branches and fetched tip SHAs. Empty disables report generation.                                                                   | ''                     |
 | comments        | The GitHub action creates a new comment inside every pull request.                                                                                                                            | false                  |
 | success_comment | Comment string that will be shown in the pull request on success. Only necessary if `comments` is enabled.                                                                                    | ''                     |
 | failure_comment | Comment string that will be shown in the pull request on failure. Only necessary if `comments` is enabled.                                                                                    | ''                     |
@@ -107,6 +108,32 @@ Add a status label if the merge was successful or failed.
     failure_label: 'failed'
 ```
 
+## Committed merge results
+
+Opt in to a machine-readable snapshot in the final AutoDev commit:
+
+```yaml
+- name: Autodev
+  uses: Staffbase/autodev-action@v2.7.0
+  with:
+    token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    results_file: generated/autodev-results.json
+```
+
+The file is a JSON array in merge order:
+
+```json
+[
+  {"branch": "feature-name", "sha": "38767ad258cbc536826996ef881eaa797851fc0e"}
+]
+```
+
+Each `sha` is the full fetched branch-tip hash actually merged, not the potentially older PR API snapshot or the synthetic AutoDev commit hash. Only successful merges are included, including successful Git fallbacks after a Mergiraf failure. Identical inputs produce identical report content; no timestamps are added.
+
+The path must be relative to and inside the checked-out repository. Missing parent directories are created, ignored report paths are included, and any previous report at that path is overwritten. Report writing or staging failures stop the run before publishing. The report is part of the final `AutoDev Merge` commit, never a separate follow-up commit.
+
+When no PRs carry the label or all merges fail, an enabled report contains `[]` in a results-only commit above the base tip. With `results_file` omitted or empty, no report is generated or modified, and the existing no-merge behavior is unchanged.
+
 # Merge Conflict Reporting
 
 When a dev-labeled PR can't be merged into the dev branch, the action logs a summary like:
@@ -145,6 +172,8 @@ mise run install  # installs dependencies
 mise run all      # format, lint, package, and test
 mise tasks        # list all available tasks with descriptions
 ```
+
+`mise run package` bundles `src/index.ts` and its dependencies with source maps into `dist/`. GitHub Actions executes the checked-in `dist/index.js`, so include rebuilt `dist/` artifacts whenever the action implementation changes.
 
 <table>
   <tr>
