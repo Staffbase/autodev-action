@@ -1,3 +1,6 @@
+import {lstat, mkdir, writeFile} from 'node:fs/promises'
+import {dirname, isAbsolute, relative, resolve, sep} from 'node:path'
+
 import {debug, getInput, info, setFailed, warning} from '@actions/core'
 import type {ExecOptions} from '@actions/exec'
 import {exec} from '@actions/exec'
@@ -51,6 +54,7 @@ const autoDev = async (): Promise<void> => {
   const label = getInput('label') || 'dev'
   const branch = getInput('branch') || 'dev'
   const base = getInput('base') || 'main'
+  const resultsFile = getInput('results_file')
 
   const comments = getInput('comments') === 'true'
   const customSuccessComment = getInput('success_comment') || ''
@@ -147,9 +151,10 @@ const autoDev = async (): Promise<void> => {
   let mergeResult: MergeResult | undefined
   if (pulls.length === 0) {
     info('🎉 No Pull Requests found. Nothing to merge.')
-  } else {
+  }
+  if (pulls.length > 0 || resultsFile) {
     debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`)
-    mergeResult = await merge(base, pulls, commitDate, useMergiraf)
+    mergeResult = await merge(base, pulls, commitDate, useMergiraf, resultsFile)
     info(mergeResult.message)
   }
 
@@ -279,7 +284,8 @@ const merge = async (
   base: string,
   pulls: Pull[],
   commitDate: string,
-  retryWithoutMergiraf: boolean
+  retryWithoutMergiraf: boolean,
+  resultsFile: string
 ): Promise<MergeResult> => {
   const success: Pull[] = []
   const failed: FailedPull[] = []
@@ -302,20 +308,30 @@ const merge = async (
   for (const pull of pulls) {
     let mergeOutput = ''
     const preMergeHead = (await execAndSlurp('git rev-parse HEAD')).trim()
+    let branchSha = ''
     const tryMerge = async (disableMergiraf: boolean): Promise<boolean> => {
       mergeOutput = ''
       try {
-        await exec(`git merge origin/${pull.branch}`, undefined, {
-          env: disableMergiraf ? {...process.env, mergiraf: '0'} : undefined,
-          listeners: {
-            stdout: data => {
-              mergeOutput += data.toString()
-            },
-            stderr: data => {
-              mergeOutput += data.toString()
+        if (resultsFile && !branchSha) {
+          branchSha = (
+            await execAndSlurp(`git rev-parse origin/${pull.branch}`)
+          ).trim()
+        }
+        await exec(
+          `git merge ${branchSha || `origin/${pull.branch}`}`,
+          undefined,
+          {
+            env: disableMergiraf ? {...process.env, mergiraf: '0'} : undefined,
+            listeners: {
+              stdout: data => {
+                mergeOutput += data.toString()
+              },
+              stderr: data => {
+                mergeOutput += data.toString()
+              }
             }
           }
-        })
+        )
         return true
       } catch (error) {
         info(
@@ -359,7 +375,7 @@ const merge = async (
       continue
     }
 
-    success.push(pull)
+    success.push(branchSha ? {...pull, sha: branchSha} : pull)
 
     // Record which files this PR's merge commit touched, so a later failing
     // merge can point at this PR as "merged ahead of you in this run."
@@ -444,26 +460,67 @@ const merge = async (
     `The following branches have been merged:\n${successList}\n\n` +
     `The following branches failed to merge:\n${failList}`
 
-  if (success.length === 0) {
+  if (success.length === 0 && !resultsFile) {
     return {message, success, failed}
   }
 
   await exec(`git reset origin/${base}`)
   await exec('git add -A')
+  if (resultsFile) {
+    const root = (await execAndSlurp('git rev-parse --show-toplevel')).trim()
+    const path = resolve(root, resultsFile)
+    const relativePath = relative(root, path)
+    if (
+      isAbsolute(resultsFile) ||
+      !relativePath ||
+      relativePath === '..' ||
+      relativePath.startsWith(`..${sep}`)
+    ) {
+      throw new Error('results_file must name a file inside the repository')
+    }
+    // Merged PRs can introduce symlinks; lexical containment is not enough.
+    let component = root
+    for (const segment of relativePath.split(sep)) {
+      component = resolve(component, segment)
+      try {
+        if ((await lstat(component)).isSymbolicLink()) {
+          throw new Error('results_file must not contain symlinks')
+        }
+      } catch (error) {
+        // A missing component also means every descendant is absent.
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') break
+        throw error
+      }
+    }
+    await mkdir(dirname(path), {recursive: true})
+    await writeFile(
+      path,
+      `${JSON.stringify(
+        success.map(({branch, sha}) => ({branch, sha})),
+        null,
+        2
+      )}\n`
+    )
+    // Include the report even when its path is ignored. Do not publish if this fails.
+    await exec('git --literal-pathspecs add --force --', [path])
+  }
 
   // --allow-empty: the merged PRs can leave the tree equal to origin/${base},
   // e.g. when a PR was merged into ${base} after fetchPulls but before
   // `git fetch`. The commit must still be created, otherwise `git commit`
   // fails with "nothing to commit" and ${branch} is not rebuilt in this run.
   await exec('git commit --allow-empty -m', [message], overrideDate)
-  // replace with graft commit so we can preserve commit parents
-  await exec(
-    `git replace --graft HEAD origin/${base}`,
-    success.map(p => `origin/${p.branch}`),
-    overrideDate
-  )
-  const rev = await execAndSlurp('git rev-parse HEAD')
-  await exec(`git checkout replace/${rev}`)
+  // Results-only commits already have the base as their sole parent.
+  if (success.length > 0) {
+    // replace with graft commit so we can preserve commit parents
+    await exec(
+      `git replace --graft HEAD origin/${base}`,
+      success.map(p => (resultsFile ? p.sha : `origin/${p.branch}`)),
+      overrideDate
+    )
+    const rev = await execAndSlurp('git rev-parse HEAD')
+    await exec(`git checkout replace/${rev}`)
+  }
 
   return {message, success, failed}
 }
