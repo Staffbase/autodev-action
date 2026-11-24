@@ -1,3 +1,16 @@
+import {execFileSync} from 'node:child_process'
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile
+} from 'node:fs/promises'
+import {tmpdir} from 'node:os'
+import {dirname, join, resolve} from 'node:path'
+
 import type {MockInstance} from 'vitest'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
@@ -1048,4 +1061,304 @@ The following branches failed to merge:
       })
     ])
   })
+})
+
+describe('autodev committed results (real Git)', () => {
+  let directory: string
+  let work: string
+  let remote: string
+  let baseSha: string
+  let firstSha: string
+  let fallbackSha: string
+  let inputs: Record<string, string>
+  let realGit: typeof exec
+
+  const git = (args: string[], cwd = work): string =>
+    execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe']
+    }).trim()
+
+  const pulls = (...branches: string[]): PullsListResponseData =>
+    branches.map((branch, index) => ({
+      number: index + 1,
+      labels: [{name: 'dev'}],
+      // Deliberately stale API snapshot: the fetched Git ref is authoritative.
+      head: {ref: branch, sha: '0000000000000000000000000000000000000000'}
+    })) as PullsListResponseData
+
+  const report = (): unknown =>
+    JSON.parse(git(['show', 'dev:generated/nested/results.json'], remote))
+
+  const parents = (): string[] =>
+    git(['show', '-s', '--format=%P', 'dev'], remote).split(' ')
+
+  beforeEach(async () => {
+    directory = await mkdtemp(join(tmpdir(), 'autodev-results-'))
+    work = join(directory, 'work')
+    remote = join(directory, 'remote.git')
+    vi.stubEnv('GIT_CONFIG_GLOBAL', join(directory, 'no-global-config'))
+    vi.stubEnv('GIT_CONFIG_NOSYSTEM', '1')
+    vi.stubEnv('GIT_AUTHOR_DATE', '2026-01-02T03:04:05Z')
+    vi.stubEnv('GIT_COMMITTER_DATE', '2026-01-02T03:04:05Z')
+    vi.stubEnv('GIT_MERGE_AUTOEDIT', 'no')
+    git(['init', '--bare', '--initial-branch=main', remote], directory)
+    git(['init', '--initial-branch=main', work], directory)
+    git(['config', 'user.name', 'AutoDev Test'])
+    git(['config', 'user.email', 'autodev@example.com'])
+    git(['remote', 'add', 'origin', remote])
+    await writeFile(join(work, 'conflict.txt'), 'original\n')
+    await writeFile(join(work, 'results.json'), 'existing report\n')
+    git(['add', '.'])
+    git(['commit', '-m', 'Initial'])
+    git(['checkout', '-b', 'conflict-with-base'])
+    await writeFile(join(work, 'conflict.txt'), 'conflicting branch\n')
+    git(['commit', '-am', 'Conflicts with base'])
+    git(['checkout', 'main'])
+    await writeFile(join(work, 'conflict.txt'), 'base\n')
+    await writeFile(join(work, '.gitignore'), 'generated/\n')
+    git(['add', '.'])
+    git(['commit', '-m', 'Base'])
+    baseSha = git(['rev-parse', 'HEAD'])
+    git(['checkout', '-b', 'feature-1'])
+    await writeFile(join(work, 'conflict.txt'), 'first feature\n')
+    git(['commit', '-am', 'First feature'])
+    firstSha = git(['rev-parse', 'HEAD'])
+    git(['checkout', '-b', 'feature-3', 'main'])
+    await writeFile(join(work, 'conflict.txt'), 'third feature\n')
+    git(['commit', '-am', 'Third feature'])
+    git(['checkout', '-b', 'fallback-feature', 'main'])
+    await writeFile(join(work, 'fallback.txt'), 'fallback\n')
+    git(['add', '.'])
+    git(['commit', '-m', 'Fallback feature'])
+    fallbackSha = git(['rev-parse', 'HEAD'])
+    git(['checkout', '-b', 'dev', 'main'])
+    git(['push', 'origin', '--all'])
+    git(['checkout', 'main'])
+
+    inputs = {
+      token: 'token',
+      mergiraf: 'false',
+      results_file: 'generated/nested/results.json',
+      comments: 'true',
+      labels: 'true'
+    }
+    vi.mocked(getInput).mockImplementation(input => inputs[input] || '')
+    vi.spyOn(utils, 'getRepoString').mockReturnValue('owner/repo')
+    vi.spyOn(utils, 'fetchPulls').mockResolvedValue(
+      pulls('feature-1', 'feature-3')
+    )
+    vi.spyOn(utils, 'createComments').mockResolvedValue()
+    vi.spyOn(utils, 'updateLabels').mockResolvedValue()
+    const {exec: realExec} = await vi.importActual<{exec: typeof exec}>(
+      '@actions/exec'
+    )
+    realGit = (command, args, options) =>
+      realExec(command, args, {...options, cwd: work, silent: true})
+    vi.mocked(exec).mockImplementation(realGit)
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+    await rm(directory, {recursive: true, force: true})
+  })
+
+  it('commits only successes with fetched hashes, preserves parents, and repeats deterministically', async () => {
+    await autoDev()
+
+    expect(report()).toEqual([{branch: 'feature-1', sha: firstSha}])
+    expect(parents()).toEqual([baseSha, firstSha])
+    expect(git(['show', 'dev:conflict.txt'], remote)).toBe('first feature')
+    const firstResult = git(['rev-parse', 'dev'], remote)
+
+    // A new Actions checkout has no local replacement refs from the first run.
+    work = join(directory, 'repeat')
+    git(['clone', remote, work], directory)
+    await autoDev()
+    expect(git(['rev-parse', 'dev'], remote)).toBe(firstResult)
+    expect(report()).toEqual([{branch: 'feature-1', sha: firstSha}])
+  })
+
+  it('includes a successful built-in fallback alongside a normal success', async () => {
+    inputs.mergiraf = 'true'
+    vi.mocked(utils.fetchPulls).mockResolvedValue(
+      pulls('feature-1', 'fallback-feature')
+    )
+    let attempts = 0
+    vi.mocked(exec).mockImplementation((command, args, options) => {
+      if (command === `git merge ${fallbackSha}` && ++attempts === 1) {
+        return Promise.reject(new Error('Mergiraf unavailable'))
+      }
+      return realGit(command, args, options)
+    })
+
+    await autoDev()
+
+    expect(report()).toEqual([
+      {branch: 'feature-1', sha: firstSha},
+      {branch: 'fallback-feature', sha: fallbackSha}
+    ])
+    expect(parents()).toEqual([baseSha, firstSha, fallbackSha])
+    expect(git(['show', 'dev:fallback.txt'], remote)).toBe('fallback')
+  })
+
+  it.each(['no labeled PRs', 'all merges failed'])(
+    'commits [] when %s',
+    async scenario => {
+      vi.mocked(utils.fetchPulls).mockResolvedValue(
+        scenario === 'no labeled PRs' ? [] : pulls('conflict-with-base')
+      )
+      // Also cover initial creation of the target branch from a results-only commit.
+      git(['push', 'origin', '--delete', 'dev'])
+      git(['branch', '-D', 'dev'])
+
+      await autoDev()
+
+      expect(report()).toEqual([])
+      expect(parents()).toEqual([baseSha])
+      expect(git(['rev-parse', 'dev'], remote)).not.toBe(baseSha)
+    }
+  )
+
+  it.each(['', undefined])(
+    'leaves existing reports alone when results_file is %s',
+    async value => {
+      if (value === undefined) delete inputs.results_file
+      else inputs.results_file = value
+
+      await autoDev()
+
+      expect(git(['show', 'dev:results.json'], remote)).toBe('existing report')
+      expect(
+        git(['ls-tree', '-r', '--name-only', 'dev', 'generated'], remote)
+      ).toBe('')
+      expect(parents()).toEqual([baseSha, firstSha])
+    }
+  )
+
+  it.each(['no labeled PRs', 'all merges failed'])(
+    'keeps the base tip without results when %s',
+    async scenario => {
+      delete inputs.results_file
+      vi.mocked(utils.fetchPulls).mockResolvedValue(
+        scenario === 'no labeled PRs' ? [] : pulls('conflict-with-base')
+      )
+
+      await autoDev()
+
+      expect(git(['rev-parse', 'dev'], remote)).toBe(baseSha)
+      expect(git(['show', 'dev:results.json'], remote)).toBe('existing report')
+    }
+  )
+
+  it('overwrites the prior snapshot instead of appending to it', async () => {
+    inputs.results_file = 'results.json'
+    await autoDev()
+    expect(JSON.parse(git(['show', 'dev:results.json'], remote))).toEqual([
+      {branch: 'feature-1', sha: firstSha}
+    ])
+  })
+
+  it('keeps a concurrent target update and skips PR updates when the report push loses its lease', async () => {
+    vi.mocked(exec).mockImplementation((command, args, options) => {
+      if (command.startsWith('git push --force-with-lease=')) {
+        git(['update-ref', 'refs/heads/dev', firstSha], remote)
+      }
+      return realGit(command, args, options)
+    })
+
+    await autoDev()
+
+    expect(git(['rev-parse', 'dev'], remote)).toBe(firstSha)
+    expect(utils.createComments).not.toHaveBeenCalled()
+    expect(utils.updateLabels).not.toHaveBeenCalled()
+    expect(warning).toHaveBeenCalledWith(
+      expect.stringContaining('moved during this run')
+    )
+  })
+
+  it.each(['../outside.json', '/outside.json'])(
+    'rejects a report outside the repository: %s',
+    async path => {
+      inputs.results_file = path
+
+      await expect(autoDev()).rejects.toThrow(
+        'results_file must name a file inside the repository'
+      )
+
+      expect(git(['rev-parse', 'dev'], remote)).toBe(baseSha)
+      expect(utils.createComments).not.toHaveBeenCalled()
+      expect(utils.updateLabels).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
+    ['external target', 'report.json', '../victim', true],
+    ['dangling target', 'report.json', '../victim', false],
+    ['internal target', 'report.json', 'results.json', true],
+    ['external ancestor', 'reports/link', '../../victim', true],
+    ['dangling ancestor', 'reports/link', '../../victim', false],
+    ['internal ancestor', 'reports/link', '../safe', true]
+  ])(
+    'rejects a symlink report path: %s',
+    async (scenario, link, destination, exists) => {
+      const ancestor = scenario.endsWith('ancestor')
+      const linkPath = join(work, link)
+      const target = resolve(dirname(linkPath), destination)
+      const victim = ancestor ? join(target, 'victim.txt') : target
+      await mkdir(dirname(linkPath), {recursive: true})
+      if (exists) {
+        if (ancestor) await mkdir(target, {recursive: true})
+        await writeFile(victim, 'untouched\n')
+      }
+      git(['checkout', '-b', 'symlink-feature', 'main'])
+      await symlink(destination, linkPath)
+      git(['add', '.'])
+      git(['commit', '-m', 'Add report symlink'])
+      git(['push', 'origin', 'symlink-feature'])
+      git(['checkout', 'main'])
+      vi.mocked(utils.fetchPulls).mockResolvedValue(pulls('symlink-feature'))
+      inputs.results_file = ancestor ? `${link}/nested/results.json` : link
+
+      await expect(autoDev()).rejects.toThrow(
+        'results_file must not contain symlinks'
+      )
+
+      if (exists) expect(await readFile(victim, 'utf8')).toBe('untouched\n')
+      else await expect(lstat(target)).rejects.toMatchObject({code: 'ENOENT'})
+      if (ancestor && exists) {
+        await expect(lstat(join(target, 'nested'))).rejects.toMatchObject({
+          code: 'ENOENT'
+        })
+      }
+      expect(git(['rev-parse', 'dev'], remote)).toBe(baseSha)
+      expect(utils.createComments).not.toHaveBeenCalled()
+      expect(utils.updateLabels).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['write', 'stage'])(
+    'does not publish or update PRs after a report %s failure',
+    async failure => {
+      if (failure === 'write') {
+        inputs.results_file = 'conflict.txt/results.json'
+      } else {
+        vi.mocked(exec).mockImplementation((command, args, options) => {
+          if (command === 'git --literal-pathspecs add --force --') {
+            return Promise.reject(new Error('staging failed'))
+          }
+          return realGit(command, args, options)
+        })
+      }
+
+      await expect(autoDev()).rejects.toThrow()
+
+      expect(git(['rev-parse', 'dev'], remote)).toBe(baseSha)
+      expect(utils.createComments).not.toHaveBeenCalled()
+      expect(utils.updateLabels).not.toHaveBeenCalled()
+    }
+  )
 })

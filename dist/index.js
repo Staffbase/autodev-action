@@ -42294,14 +42294,14 @@ function getIDToken(aud) {
  */
 
 //# sourceMappingURL=core.js.map
-// EXTERNAL MODULE: external "node:crypto"
-var external_node_crypto_ = __nccwpck_require__(7598);
 ;// CONCATENATED MODULE: external "node:fs/promises"
 const promises_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs/promises");
-;// CONCATENATED MODULE: external "node:os"
-const external_node_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:os");
 ;// CONCATENATED MODULE: external "node:path"
 const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
+// EXTERNAL MODULE: external "node:crypto"
+var external_node_crypto_ = __nccwpck_require__(7598);
+;// CONCATENATED MODULE: external "node:os"
+const external_node_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:os");
 ;// CONCATENATED MODULE: ./node_modules/.pnpm/@actions+glob@0.7.0/node_modules/@actions/glob/lib/internal-glob-options-helper.js
 
 /**
@@ -102661,6 +102661,8 @@ const updateLabels = async (octokit, owner, repo, pulls, successfulPulls, failed
 
 
 
+
+
 /**
  * this function runs a command via exec, and returns the whole output as string.
  */
@@ -102690,6 +102692,7 @@ const autoDev = async () => {
     const label = getInput('label') || 'dev';
     const branch = getInput('branch') || 'dev';
     const base = getInput('base') || 'main';
+    const resultsFile = getInput('results_file');
     const comments = getInput('comments') === 'true';
     const customSuccessComment = getInput('success_comment') || '';
     const customFailureComment = getInput('failure_comment') || '';
@@ -102747,9 +102750,9 @@ const autoDev = async () => {
     if (pulls.length === 0) {
         info('🎉 No Pull Requests found. Nothing to merge.');
     }
-    else {
+    if (pulls.length > 0 || resultsFile) {
         core_debug(`merging pull requests: ${JSON.stringify(pulls, null, '\t')}`);
-        mergeResult = await autodev_merge(base, pulls, commitDate, useMergiraf);
+        mergeResult = await autodev_merge(base, pulls, commitDate, useMergiraf, resultsFile);
         info(mergeResult.message);
     }
     // check if the branch exists, if not create it from the current HEAD: the
@@ -102841,7 +102844,7 @@ const extractConflictFiles = (output) => {
     }
     return Array.from(files);
 };
-const autodev_merge = async (base, pulls, commitDate, retryWithoutMergiraf) => {
+const autodev_merge = async (base, pulls, commitDate, retryWithoutMergiraf, resultsFile) => {
     const success = [];
     const failed = [];
     // file path -> all dev-labeled PRs that successfully merged into the synthetic
@@ -102861,10 +102864,14 @@ const autodev_merge = async (base, pulls, commitDate, retryWithoutMergiraf) => {
     for (const pull of pulls) {
         let mergeOutput = '';
         const preMergeHead = (await execAndSlurp('git rev-parse HEAD')).trim();
+        let branchSha = '';
         const tryMerge = async (disableMergiraf) => {
             mergeOutput = '';
             try {
-                await exec_exec(`git merge origin/${pull.branch}`, undefined, {
+                if (resultsFile && !branchSha) {
+                    branchSha = (await execAndSlurp(`git rev-parse origin/${pull.branch}`)).trim();
+                }
+                await exec_exec(`git merge ${branchSha || `origin/${pull.branch}`}`, undefined, {
                     env: disableMergiraf ? { ...process.env, mergiraf: '0' } : undefined,
                     listeners: {
                         stdout: data => {
@@ -102912,7 +102919,7 @@ const autodev_merge = async (base, pulls, commitDate, retryWithoutMergiraf) => {
             });
             continue;
         }
-        success.push(pull);
+        success.push(branchSha ? { ...pull, sha: branchSha } : pull);
         // Record which files this PR's merge commit touched, so a later failing
         // merge can point at this PR as "merged ahead of you in this run."
         //
@@ -102982,20 +102989,54 @@ const autodev_merge = async (base, pulls, commitDate, retryWithoutMergiraf) => {
     const message = `AutoDev Merge\n\n` +
         `The following branches have been merged:\n${successList}\n\n` +
         `The following branches failed to merge:\n${failList}`;
-    if (success.length === 0) {
+    if (success.length === 0 && !resultsFile) {
         return { message, success, failed };
     }
     await exec_exec(`git reset origin/${base}`);
     await exec_exec('git add -A');
+    if (resultsFile) {
+        const root = (await execAndSlurp('git rev-parse --show-toplevel')).trim();
+        const path = (0,external_node_path_namespaceObject.resolve)(root, resultsFile);
+        const relativePath = (0,external_node_path_namespaceObject.relative)(root, path);
+        if ((0,external_node_path_namespaceObject.isAbsolute)(resultsFile) ||
+            !relativePath ||
+            relativePath === '..' ||
+            relativePath.startsWith(`..${external_node_path_namespaceObject.sep}`)) {
+            throw new Error('results_file must name a file inside the repository');
+        }
+        // Merged PRs can introduce symlinks; lexical containment is not enough.
+        let component = root;
+        for (const segment of relativePath.split(external_node_path_namespaceObject.sep)) {
+            component = (0,external_node_path_namespaceObject.resolve)(component, segment);
+            try {
+                if ((await (0,promises_namespaceObject.lstat)(component)).isSymbolicLink()) {
+                    throw new Error('results_file must not contain symlinks');
+                }
+            }
+            catch (error) {
+                // A missing component also means every descendant is absent.
+                if (error.code === 'ENOENT')
+                    break;
+                throw error;
+            }
+        }
+        await (0,promises_namespaceObject.mkdir)((0,external_node_path_namespaceObject.dirname)(path), { recursive: true });
+        await (0,promises_namespaceObject.writeFile)(path, `${JSON.stringify(success.map(({ branch, sha }) => ({ branch, sha })), null, 2)}\n`);
+        // Include the report even when its path is ignored. Do not publish if this fails.
+        await exec_exec('git --literal-pathspecs add --force --', [path]);
+    }
     // --allow-empty: the merged PRs can leave the tree equal to origin/${base},
     // e.g. when a PR was merged into ${base} after fetchPulls but before
     // `git fetch`. The commit must still be created, otherwise `git commit`
     // fails with "nothing to commit" and ${branch} is not rebuilt in this run.
     await exec_exec('git commit --allow-empty -m', [message], overrideDate);
-    // replace with graft commit so we can preserve commit parents
-    await exec_exec(`git replace --graft HEAD origin/${base}`, success.map(p => `origin/${p.branch}`), overrideDate);
-    const rev = await execAndSlurp('git rev-parse HEAD');
-    await exec_exec(`git checkout replace/${rev}`);
+    // Results-only commits already have the base as their sole parent.
+    if (success.length > 0) {
+        // replace with graft commit so we can preserve commit parents
+        await exec_exec(`git replace --graft HEAD origin/${base}`, success.map(p => (resultsFile ? p.sha : `origin/${p.branch}`)), overrideDate);
+        const rev = await execAndSlurp('git rev-parse HEAD');
+        await exec_exec(`git checkout replace/${rev}`);
+    }
     return { message, success, failed };
 };
 /* harmony default export */ const autodev = (autoDev);
